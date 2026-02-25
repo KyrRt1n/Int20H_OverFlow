@@ -1,10 +1,8 @@
-// В src/routes/taxRoutes.ts
 import { Router } from 'express';
-import { getTaxes, createTax } from '../controllers/taxController';
+import { calculateTax } from '../controllers/taxController';
 
 const router = Router();
 
-router.get('/', getTaxes);
-router.post('/', createTax);
+router.post('/calculate-tax', calculateTax);
 
-export default router;
+export default router; // Вот этой строчки ему как раз не хватало!

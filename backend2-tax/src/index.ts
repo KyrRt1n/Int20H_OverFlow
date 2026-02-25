@@ -1,21 +1,22 @@
-// Пример для src/index.ts
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import taxRoutes from './routes/taxRoutes';
-import { initDb } from './db/database';
 
 const app = express();
+const PORT = process.env.PORT || 3002;
 
 app.use(cors());
 app.use(express.json());
 
-// Подключаем роуты
-app.use('/api/taxes', taxRoutes);
+app.use('/api', taxRoutes);
 
-// Запуск
-const start = async () => {
-  await initDb(); // Сначала БД
-  app.listen(3000, () => console.log('Server running on port 3000'));
-};
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', service: 'Tax Service', port: PORT });
+});
 
-start();
+app.listen(PORT, () => {
+  console.log('\n═══════════════════════════════════════');
+  console.log(`💰 TAX SERVICE RUNNING ON PORT ${PORT}`);
+  console.log('═══════════════════════════════════════\n');
+});

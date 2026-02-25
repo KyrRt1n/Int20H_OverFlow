@@ -1,24 +1,17 @@
-// В src/controllers/taxController.ts
 import { Request, Response } from 'express';
-import { openDb } from '../db/database';
-// import { calculateTax } from '../services/taxService'; // Если логика расчета там
+import { calculateTaxForLocation } from '../services/taxService';
 
-export const getTaxes = async (req: Request, res: Response) => {
-  const db = await openDb();
-  // Пример простой пагинации
-  const items = await db.all('SELECT * FROM tax_records LIMIT 10 OFFSET 0');
-  res.json(items);
-};
+export const calculateTax = async (req: Request, res: Response) => {
+  try {
+    const { lat, lon, subtotal } = req.body;
 
-export const createTax = async (req: Request, res: Response) => {
-  const { amount } = req.body;
-  // Тут вызываешь свой сервис для расчета
-  // const result = calculateTax(amount);
+    if (typeof lat !== 'number' || typeof lon !== 'number' || typeof subtotal !== 'number') {
+      return res.status(400).json({ error: 'lat, lon, and subtotal must be numbers' });
+    }
 
-  // И сохраняешь в БД (задача Базовика)
-  const db = await openDb();
-  await db.run('INSERT INTO tax_records (amount, taxResult, createdAt) VALUES (?, ?, ?)',
-    [amount, 0 /*замени на результат*/, new Date().toISOString()]);
-
-  res.status(201).json({ message: 'Saved' });
+    const result = await calculateTaxForLocation(lat, lon, subtotal);
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
 };
