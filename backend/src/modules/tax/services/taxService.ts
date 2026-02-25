@@ -1,60 +1,72 @@
 import axios from 'axios';
-import { getTaxRatesByCity } from '../utils/taxRates';
+import { getRatesByLocality, DEFAULT_TAX_RATES } from '../utils/taxRates';
 
-// Беремо ключ із .env
 const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
 
 export async function calculateTaxForLocation(lat: number, lon: number, subtotal: number) {
-  // 1. Валідація координат (Нью-Йорк штат)
-  if (lat < 40 || lat > 45 || lon < -80 || lon > -71) {
+  // Rough bounding box for New York State
+  if (lat < 40.4 || lat > 45.1 || lon < -79.8 || lon > -71.8) {
     throw new Error('Coordinates are outside of New York State');
   }
 
-  let city = 'unknown';
+  let city   = '';
+  let county = '';
 
-  // 2. Стукаємо в Google API за адресою
+  // Resolve coordinates to city + county via Google Geocoding API
   try {
     const response = await axios.get('https://maps.googleapis.com/maps/api/geocode/json', {
       params: {
-        latlng: `${lat},${lon}`,
-        key: GOOGLE_MAPS_API_KEY,
+        latlng:   `${lat},${lon}`,
+        key:      GOOGLE_MAPS_API_KEY,
         language: 'en',
       },
     });
 
     if (response.data.status === 'OK' && response.data.results.length > 0) {
       const components = response.data.results[0].address_components;
-      // Шукаємо місто (locality)
-      const cityComponent = components.find((c: any) => c.types.includes('locality'));
-      if (cityComponent) {
-        city = cityComponent.long_name;
-      }
+
+      const localityComponent = components.find((c: any) =>
+        c.types.includes('locality') || c.types.includes('sublocality')
+      );
+      const countyComponent = components.find((c: any) =>
+        c.types.includes('administrative_area_level_2')
+      );
+
+      if (localityComponent) city   = localityComponent.long_name;
+      if (countyComponent)   county = countyComponent.long_name.replace(/\s*County$/i, '');
     }
   } catch (error) {
-    console.error('Google API Error:', error);
-    // Якщо API впало, беремо дефолтні ставки, щоб не блокувати замовлення
+    // If geocoding fails, fall back to state-only rate so the order is not blocked
+    console.error('Google Geocoding API error:', error);
   }
 
-  // 3. Дістаємо ставки для знайденого міста
-  const rates = getTaxRatesByCity(city);
+  const rates = getRatesByLocality(city, county);
 
-  // 4. Математика: рахуємо composite tax rate та суми
-  const compositeRate = rates.state + rates.county + rates.city + (rates.special || 0);
+  const compositeRate = rates.state + rates.county + rates.city + rates.special;
+  const taxAmount     = Math.round(subtotal * compositeRate * 100) / 100;
+  const totalAmount   = Math.round((subtotal + taxAmount) * 100) / 100;
 
-  // Правильне округлення до центів
-  const taxAmount = Math.round(subtotal * compositeRate * 100) / 100;
-  const totalAmount = Math.round((subtotal + taxAmount) * 100) / 100;
+  // Build human-readable list of jurisdictions that contributed to the rate
+  const jurisdictions: string[] = ['New York State'];
+  if (county) jurisdictions.push(`${county} County`);
+  if (city && city !== county) jurisdictions.push(city);
+  if (rates.special > 0) jurisdictions.push('Metropolitan Commuter Transportation District (MCTD)');
 
-  // 5. Повертаємо об'єкт у потрібному форматі
+  // Warn in logs when we fell back to the default (unknown location)
+  if (rates === DEFAULT_TAX_RATES) {
+    console.warn(`Tax lookup: unknown locality — city="${city}", county="${county}". Applying state-only rate.`);
+  }
+
   return {
     composite_tax_rate: Number(compositeRate.toFixed(6)),
-    tax_amount: taxAmount,
-    total_amount: totalAmount,
+    tax_amount:         taxAmount,
+    total_amount:       totalAmount,
     breakdown: {
-      state_rate: rates.state,
-      county_rate: rates.county,
-      city_rate: rates.city,
-      special_rates: rates.special || 0,
-    }
+      state_rate:   rates.state,
+      county_rate:  rates.county,
+      city_rate:    rates.city,
+      special_rates: rates.special,
+    },
+    jurisdictions,
   };
 }
