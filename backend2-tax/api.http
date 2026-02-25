@@ -1,0 +1,13 @@
+### Проверка GET (получить все записи)
+GET http://localhost:3000/api/taxes
+Accept: application/json
+
+###
+
+### Проверка POST (создать новую запись)
+POST http://localhost:3000/api/taxes
+Content-Type: application/json
+
+{
+  "amount": 1000
+}
