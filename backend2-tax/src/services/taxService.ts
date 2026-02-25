@@ -1,0 +1,1 @@
+// Запити до Google API, логіка composite_tax_rate
