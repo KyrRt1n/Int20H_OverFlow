@@ -18,28 +18,26 @@ export const processCsvFile = (filePath: string): Promise<any[]> => {
             const subtotal = parseFloat(row.subtotal);
             const timestamp = row.timestamp;
 
-            // 1. Стучимся в ТВОЙ сервис налогов (backend2-tax на порту 3002)
-            // Замени URL, если у тебя другой порт или путь
-            const taxResponse = await axios.post('http://localhost:3002/api/calculate-tax', {
-              lat: lat,
-              lon: lon,
-              subtotal: subtotal
-            });
+            // 1. Call Tax service internally
+            const { calculateTaxForLocation } = await import('../../tax/services/taxService');
+            const taxData = await calculateTaxForLocation(lat, lon, subtotal);
 
-            const taxData = taxResponse.data;
-
-            // 2. Формируем итоговый объект заказа
+            // 2. Form final order object
             const orderData = {
               latitude: lat,
               longitude: lon,
               subtotal: subtotal,
               timestamp: timestamp,
-              ...taxData // Добавляем рассчитанные налоги
+              ...taxData // Add calculated taxes
             };
 
-            // 3. Отправляем готовый заказ в сервис Друга 1 (backend1-orders на порту 3000)
-            // Замени URL, если у него другой порт или путь
-            await axios.post('http://localhost:3000/orders', orderData);
+            // 3. Save order via internal DB call
+            const { connectDB } = await import('../../orders/db/database');
+            const db = await connectDB();
+            await db.run(
+              'INSERT INTO orders (latitude, longitude, subtotal, timestamp, tax_amount, total_amount) VALUES (?, ?, ?, ?, ?, ?)',
+              [orderData.latitude, orderData.longitude, orderData.subtotal, orderData.timestamp, orderData.tax_amount, orderData.total_amount]
+            );
 
             // Добавляем в массив успешных результатов
             results.push(orderData);

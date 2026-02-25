@@ -1,9 +1,0 @@
-### Проверка расчета налогов (Центр Нью-Йорка)
-POST http://127.0.0.1:3002/api/calculate-tax
-Content-Type: application/json
-
-{
-  "lat": 40.7128,
-  "lon": -74.0060,
-  "subtotal": 100
-}
