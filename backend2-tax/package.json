@@ -1,1 +1,1 @@
-{"description": "Залежності: express, axios"}
+{"description":"Залежності: express, axios","dependencies":{"express":"^5.2.1","sqlite":"^5.1.1","sqlite3":"^5.1.7"},"devDependencies":{"@types/cors":"^2.8.19","@types/express":"^5.0.6","cors":"^2.8.6"}}
