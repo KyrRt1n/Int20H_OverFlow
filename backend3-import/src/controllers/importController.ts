@@ -1,9 +1,15 @@
 import { Request, Response } from 'express';
 import multer from 'multer';
+import * as fs from 'fs';
 import { processCsvFile } from '../services/csvParserService';
 
 // Настраиваем multer для сохранения файла во временную папку uploads/
-const upload = multer({ dest: 'uploads/' });
+const UPLOAD_DIR = 'uploads/';
+if (!fs.existsSync(UPLOAD_DIR)) {
+  fs.mkdirSync(UPLOAD_DIR);
+}
+
+const upload = multer({ dest: UPLOAD_DIR });
 
 export const importOrders = [
   upload.single('file'),
