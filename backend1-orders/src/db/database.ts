@@ -12,8 +12,13 @@ export const connectDB = async (): Promise<Database> => {
   await db.exec(`
     CREATE TABLE IF NOT EXISTS orders (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      customer_name TEXT NOT NULL,
-      total_price REAL NOT NULL,
+      latitude REAL,
+      longitude REAL,
+      subtotal REAL,
+      tax_amount REAL,
+      total_amount REAL,
+      timestamp TEXT,
+      customer_name TEXT DEFAULT 'Imported',
       status TEXT DEFAULT 'new',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )

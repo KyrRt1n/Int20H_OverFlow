@@ -35,15 +35,22 @@ export const getOrders = async (req: Request, res: Response) => {
 // POST /orders (базовый каркас)
 export const createOrder = async (req: Request, res: Response) => {
   try {
-    // Каркас: здесь позже будет логика сохранения заказа (Друг 3)
-    const body = req.body;
+    const db = await connectDB();
+    const { latitude, longitude, subtotal, timestamp, tax_amount, total_amount } = req.body;
 
-    // Пока просто возвращаем заглушку
+    // Вставляем заказ в базу данных
+    const result = await db.run(
+      'INSERT INTO orders (latitude, longitude, subtotal, timestamp, tax_amount, total_amount) VALUES (?, ?, ?, ?, ?, ?)',
+      [latitude, longitude, subtotal, timestamp, tax_amount, total_amount]
+    );
+
     res.status(201).json({
-      message: 'Каркас для создания заказа работает!',
-      receivedData: body
+      message: 'Заказ успешно создан!',
+      orderId: result.lastID,
+      receivedData: req.body
     });
   } catch (error) {
+    console.error('Ошибка при создании заказа:', error);
     res.status(500).json({ message: 'Ошибка при создании заказа' });
   }
 };
