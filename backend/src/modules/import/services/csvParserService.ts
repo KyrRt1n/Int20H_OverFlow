@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import csv from 'csv-parser';
-import { calculateTaxForLocation } from '../../tax/services/taxService';
+import { calculateTaxBatch, BatchTaxInput } from '../../tax/services/taxService';
 import { connectDB } from '../../orders/db/database';
 
 export interface ImportResult {
@@ -9,7 +9,6 @@ export interface ImportResult {
   errors:    { row: number; reason: string }[];
 }
 
-// Represents one parsed CSV row ready for processing
 interface ParsedRow {
   rowIndex:  number;
   lat:       number;
@@ -19,34 +18,69 @@ interface ParsedRow {
   raw:       { latitude: string; longitude: string; subtotal: string };
 }
 
-// Fix #6 & #7: Instead of firing all rows in parallel (SQLITE_BUSY + race conditions),
-// we collect all rows first, then process them sequentially inside a single DB transaction.
-// Result accumulation uses the return value of each step — no shared mutable counters.
+// ---------------------------------------------------------------------------
+// processCsvFile — main entry point
+//
+// Key change vs original:
+//   Instead of calling calculateTaxForLocation() per row (11 222 separate
+//   Google Maps API calls → rate-limit hell), we:
+//     1. Parse the entire CSV into memory
+//     2. Call calculateTaxBatch() which groups valid rows into chunks of 1 000
+//        and fires them at the free Census Bureau batch geocoding endpoint
+//        (3 concurrent requests → ~12 requests total for 11k rows)
+//     3. Insert all results in a single SQLite transaction
+//
+// This brings import time from ~hours (Google, rate-limited) to ~2–3 minutes.
+// ---------------------------------------------------------------------------
 export const processCsvFile = async (filePath: string): Promise<ImportResult> => {
-  // Step 1: Parse entire CSV into memory
+  // Step 1: Parse CSV into memory
   const rows = await parseCsv(filePath);
 
-  // Step 2: Open ONE db connection for the whole import
-  const db = await connectDB();
+  // Step 2: Separate valid rows from parse errors
+  const parseErrors: { row: number; reason: string }[] = [];
+  const validRows: ParsedRow[] = [];
 
-  // Step 3: Process all rows sequentially inside a transaction
-  const results: Array<{ ok: true } | { ok: false; row: number; reason: string }> = [];
+  for (const row of rows) {
+    if (isNaN(row.lat) || isNaN(row.lon) || isNaN(row.subtotal)) {
+      parseErrors.push({
+        row:    row.rowIndex,
+        reason: `Invalid numeric fields — lat=${row.raw.latitude}, lon=${row.raw.longitude}, subtotal=${row.raw.subtotal}`,
+      });
+    } else {
+      validRows.push(row);
+    }
+  }
+
+  // Step 3: Batch tax resolution (Census API)
+  const batchInputs: BatchTaxInput[] = validRows.map(r => ({
+    index:    r.rowIndex,
+    lat:      r.lat,
+    lon:      r.lon,
+    subtotal: r.subtotal,
+  }));
+
+  const taxResults = await calculateTaxBatch(batchInputs);
+
+  // Step 4: Insert results in a single DB transaction
+  const db = await connectDB();
+  const dbErrors: { row: number; reason: string }[] = [];
 
   await db.run('BEGIN');
   try {
-    for (const { rowIndex, lat, lon, subtotal, timestamp, raw } of rows) {
-      if (isNaN(lat) || isNaN(lon) || isNaN(subtotal)) {
-        results.push({
-          ok: false,
-          row: rowIndex,
-          reason: `Invalid numeric fields — lat=${raw.latitude}, lon=${raw.longitude}, subtotal=${raw.subtotal}`,
-        });
+    for (const row of validRows) {
+      const tax = taxResults.get(row.rowIndex);
+
+      if (!tax) {
+        dbErrors.push({ row: row.rowIndex, reason: 'Tax calculation result missing' });
+        continue;
+      }
+
+      if (!tax.ok) {
+        dbErrors.push({ row: row.rowIndex, reason: tax.error });
         continue;
       }
 
       try {
-        const tax = await calculateTaxForLocation(lat, lon, subtotal);
-
         await db.run(
           `INSERT INTO orders
            (latitude, longitude, subtotal, timestamp,
@@ -54,16 +88,14 @@ export const processCsvFile = async (filePath: string): Promise<ImportResult> =>
             breakdown, jurisdictions)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
-            lat, lon, subtotal, timestamp,
+            row.lat, row.lon, row.subtotal, row.timestamp,
             tax.tax_amount, tax.total_amount, tax.composite_tax_rate,
             JSON.stringify(tax.breakdown),
             JSON.stringify(tax.jurisdictions),
           ]
         );
-
-        results.push({ ok: true });
       } catch (err: any) {
-        results.push({ ok: false, row: rowIndex, reason: err?.message ?? 'Unknown error' });
+        dbErrors.push({ row: row.rowIndex, reason: err?.message ?? 'DB insert failed' });
       }
     }
 
@@ -72,25 +104,18 @@ export const processCsvFile = async (filePath: string): Promise<ImportResult> =>
     await db.run('ROLLBACK');
     throw err;
   } finally {
-    // Clean up temp file regardless of outcome
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
   }
 
-  // Step 4: Derive counts atomically from immutable results array — no shared mutable state
-  const errors = results
-    .filter((r): r is { ok: false; row: number; reason: string } => !r.ok)
-    .map(({ row, reason }) => ({ row, reason }));
+  const allErrors = [...parseErrors, ...dbErrors];
 
   return {
-    processed: results.filter(r => r.ok).length,
-    failed:    errors.length,
-    errors,
+    processed: validRows.length - dbErrors.length,
+    failed:    allErrors.length,
+    errors:    allErrors,
   };
 };
 
-// Helper: read the entire CSV file and return parsed rows
 function parseCsv(filePath: string): Promise<ParsedRow[]> {
   return new Promise((resolve, reject) => {
     const rows: ParsedRow[] = [];
@@ -109,7 +134,7 @@ function parseCsv(filePath: string): Promise<ParsedRow[]> {
           raw: { latitude: row.latitude, longitude: row.longitude, subtotal: row.subtotal },
         });
       })
-      .on('end', () => resolve(rows))
+      .on('end',   () => resolve(rows))
       .on('error', reject);
   });
 }
