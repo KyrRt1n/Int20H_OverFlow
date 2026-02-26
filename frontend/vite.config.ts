@@ -8,6 +8,7 @@ export default defineConfig({
       '/orders': 'http://localhost:3000',
       '/tax':    'http://localhost:3000',
       '/health': 'http://localhost:3000',
+      '/auth':   'http://localhost:3000',
     }
   }
 })
