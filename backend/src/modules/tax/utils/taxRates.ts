@@ -82,11 +82,14 @@ export const COUNTY_RATES: Record<string, TaxRates> = {
 
   // NYC — all five boroughs share the same rate (8.875%)
   // NYC imposes 4.5% city tax + 0.375% MCTD; no separate county portion.
-  'bronx':         { state: 0.04, county: 0, city: 0.045, special: 0.00375 },
-  'kings':         { state: 0.04, county: 0, city: 0.045, special: 0.00375 }, // Brooklyn
-  'new york':      { state: 0.04, county: 0, city: 0.045, special: 0.00375 }, // Manhattan
-  'queens':        { state: 0.04, county: 0, city: 0.045, special: 0.00375 },
-  'richmond':      { state: 0.04, county: 0, city: 0.045, special: 0.00375 }, // Staten Island
+  // Fix #3: Google Geocoding returns full names like "Richmond County", "Kings County"
+  // The .replace(/\s*County$/i, '') in taxService strips " County" → keys below must cover both forms.
+  'bronx':           { state: 0.04, county: 0, city: 0.045, special: 0.00375 }, // The Bronx
+  'kings':           { state: 0.04, county: 0, city: 0.045, special: 0.00375 }, // Brooklyn
+  'new york':        { state: 0.04, county: 0, city: 0.045, special: 0.00375 }, // Manhattan
+  'new york city':   { state: 0.04, county: 0, city: 0.045, special: 0.00375 }, // generic NYC
+  'queens':          { state: 0.04, county: 0, city: 0.045, special: 0.00375 },
+  'richmond':        { state: 0.04, county: 0, city: 0.045, special: 0.00375 }, // Staten Island
 };
 
 // ---------------------------------------------------------------------------
