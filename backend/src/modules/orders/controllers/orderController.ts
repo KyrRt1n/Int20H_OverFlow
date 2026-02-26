@@ -2,12 +2,21 @@ import { Request, Response } from 'express';
 import { connectDB } from '../db/database';
 import { calculateTaxForLocation } from '../../tax/services/taxService';
 
+// Нормализует любую дату-строку в ISO 8601 (UTC).
+// Если передана только дата "YYYY-MM-DD" — дополняет до "YYYY-MM-DDT00:00:00.000Z".
+// Возвращает null если строка не парсится.
+function normalizeToISO(value: string): string | null {
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return null;
+  return d.toISOString(); // всегда "YYYY-MM-DDTHH:mm:ss.sssZ"
+}
+
 // GET /orders
 // Returns a paginated, filterable list of orders.
 //
 // Query params:
 //   page          (default: 1)
-//   limit         (default: 10)
+//   limit         (default: 10, max: 200)
 //   from          — filter by timestamp >= value  (ISO string or YYYY-MM-DD)
 //   to            — filter by timestamp <= value  (ISO string or YYYY-MM-DD)
 //   subtotal_min  — filter by subtotal >= value
@@ -18,8 +27,8 @@ export const getOrders = async (req: Request, res: Response) => {
     const db = await connectDB();
 
     // --- Pagination ---
-    const page   = parseInt(req.query.page  as string) || 1;
-    const limit  = parseInt(req.query.limit as string) || 10;
+    const page  = Math.max(1, parseInt(req.query.page  as string) || 1);
+    const limit = Math.min(200, Math.max(1, parseInt(req.query.limit as string) || 10));
     const offset = (page - 1) * limit;
 
     // --- Filters ---
@@ -28,16 +37,44 @@ export const getOrders = async (req: Request, res: Response) => {
 
     const { from, to, subtotal_min, subtotal_max, status } = req.query;
 
-    if (from)         { conditions.push('timestamp >= ?'); params.push(from as string); }
-    if (to)           { conditions.push('timestamp <= ?'); params.push(to as string); }
+    // Фильтры from/to нормализуем в ISO и сравниваем с колонкой timestamp.
+    // Сортировка тоже по timestamp — семантика единая.
+    if (from) {
+      const iso = normalizeToISO(from as string);
+      if (!iso) {
+        res.status(400).json({ error: `Invalid 'from' date: "${from}"` });
+        return;
+      }
+      // Для фильтра "с начала дня" — если передана только дата, from уже нормализован до T00:00:00Z
+      conditions.push('timestamp >= ?');
+      params.push(iso);
+    }
+
+    if (to) {
+      const iso = normalizeToISO(to as string);
+      if (!iso) {
+        res.status(400).json({ error: `Invalid 'to' date: "${to}"` });
+        return;
+      }
+      // Если передана только дата (YYYY-MM-DD), нормализуем до конца дня T23:59:59.999Z
+      const raw = to as string;
+      const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(raw);
+      const isoTo = isDateOnly
+        ? new Date(new Date(iso).setUTCHours(23, 59, 59, 999)).toISOString()
+        : iso;
+      conditions.push('timestamp <= ?');
+      params.push(isoTo);
+    }
+
     if (subtotal_min) { conditions.push('subtotal >= ?');  params.push(parseFloat(subtotal_min as string)); }
     if (subtotal_max) { conditions.push('subtotal <= ?');  params.push(parseFloat(subtotal_max as string)); }
     if (status)       { conditions.push('status = ?');     params.push(status as string); }
 
     const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
+    // Сортировка по timestamp — той же колонке, по которой фильтруем
     const rows = await db.all(
-      `SELECT * FROM orders ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+      `SELECT * FROM orders ${where} ORDER BY timestamp DESC LIMIT ? OFFSET ?`,
       [...params, limit, offset]
     );
 
@@ -46,7 +83,7 @@ export const getOrders = async (req: Request, res: Response) => {
       params
     );
 
-    // Deserialize JSON columns that are stored as TEXT in SQLite
+    // Десериализуем JSON-колонки
     const orders = rows.map((row: any) => ({
       ...row,
       breakdown:     row.breakdown     ? JSON.parse(row.breakdown)     : null,
@@ -79,12 +116,12 @@ export const getOrders = async (req: Request, res: Response) => {
 //   subtotal   — wellness kit price before tax
 //
 // Body (optional):
-//   timestamp  — order timestamp (ISO string); defaults to now
+//   timestamp  — order timestamp; normalizes to ISO 8601, defaults to now
 export const createOrder = async (req: Request, res: Response) => {
   try {
     const { latitude, longitude, subtotal, timestamp } = req.body;
 
-    // Validate required fields
+    // Валидация обязательных полей
     if (latitude == null || longitude == null || subtotal == null) {
       res.status(400).json({ error: 'latitude, longitude and subtotal are required.' });
       return;
@@ -99,10 +136,21 @@ export const createOrder = async (req: Request, res: Response) => {
       return;
     }
 
-    // Auto-calculate tax based on delivery coordinates
-    const tax = await calculateTaxForLocation(lat, lon, sub);
+    // Нормализуем timestamp в ISO: если не передан — текущее время
+    let normalizedTimestamp: string;
+    if (timestamp) {
+      const iso = normalizeToISO(timestamp);
+      if (!iso) {
+        res.status(400).json({ error: `Invalid timestamp: "${timestamp}"` });
+        return;
+      }
+      normalizedTimestamp = iso;
+    } else {
+      normalizedTimestamp = new Date().toISOString();
+    }
 
-    const db = await connectDB();
+    const tax = await calculateTaxForLocation(lat, lon, sub);
+    const db  = await connectDB();
 
     const result = await db.run(
       `INSERT INTO orders
@@ -113,7 +161,7 @@ export const createOrder = async (req: Request, res: Response) => {
         lat,
         lon,
         sub,
-        timestamp ?? new Date().toISOString(),
+        normalizedTimestamp,
         tax.tax_amount,
         tax.total_amount,
         tax.composite_tax_rate,
@@ -123,8 +171,8 @@ export const createOrder = async (req: Request, res: Response) => {
     );
 
     res.status(201).json({
-      message:  'Order created successfully.',
-      orderId:  result.lastID,
+      message: 'Order created successfully.',
+      orderId: result.lastID,
       tax: {
         composite_tax_rate: tax.composite_tax_rate,
         tax_amount:         tax.tax_amount,
@@ -136,7 +184,6 @@ export const createOrder = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Failed to create order:', error);
 
-    // Surface NY-bounds error as 400 instead of 500
     if (error.message?.includes('outside of New York State')) {
       res.status(400).json({ error: error.message });
       return;
