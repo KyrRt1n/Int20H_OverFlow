@@ -9,15 +9,15 @@ export async function calculateTaxForLocation(lat: number, lon: number, subtotal
     throw new Error('Coordinates are outside of New York State');
   }
 
-  let city   = '';
+  let city = '';
   let county = '';
 
   // Resolve coordinates to city + county via Google Geocoding API
   try {
     const response = await axios.get('https://maps.googleapis.com/maps/api/geocode/json', {
       params: {
-        latlng:   `${lat},${lon}`,
-        key:      GOOGLE_MAPS_API_KEY,
+        latlng: `${lat},${lon}`,
+        key: GOOGLE_MAPS_API_KEY,
         language: 'en',
       },
     });
@@ -32,8 +32,8 @@ export async function calculateTaxForLocation(lat: number, lon: number, subtotal
         c.types.includes('administrative_area_level_2')
       );
 
-      if (localityComponent) city   = localityComponent.long_name;
-      if (countyComponent)   county = countyComponent.long_name.replace(/\s*County$/i, '');
+      if (localityComponent) city = localityComponent.long_name;
+      if (countyComponent) county = countyComponent.long_name.replace(/\s*County$/i, '');
     }
   } catch (error) {
     // If geocoding fails, fall back to state-only rate so the order is not blocked
@@ -43,8 +43,8 @@ export async function calculateTaxForLocation(lat: number, lon: number, subtotal
   const rates = getRatesByLocality(city, county);
 
   const compositeRate = rates.state + rates.county + rates.city + rates.special;
-  const taxAmount     = Math.round(subtotal * compositeRate * 100) / 100;
-  const totalAmount   = Math.round((subtotal + taxAmount) * 100) / 100;
+  const taxAmount = Math.round(subtotal * compositeRate * 100) / 100;
+  const totalAmount = Math.round((subtotal + taxAmount) * 100) / 100;
 
   // Build human-readable list of jurisdictions that contributed to the rate
   const jurisdictions: string[] = ['New York State'];
@@ -59,14 +59,15 @@ export async function calculateTaxForLocation(lat: number, lon: number, subtotal
 
   return {
     composite_tax_rate: Number(compositeRate.toFixed(6)),
-    tax_amount:         taxAmount,
-    total_amount:       totalAmount,
+    tax_amount: taxAmount,
+    total_amount: totalAmount,
     breakdown: {
-      state_rate:   rates.state,
-      county_rate:  rates.county,
-      city_rate:    rates.city,
+      state_rate: rates.state,
+      county_rate: rates.county,
+      city_rate: rates.city,
       special_rates: rates.special,
     },
     jurisdictions,
-  };
+    fallback_rate_used: rates === DEFAULT_TAX_RATES,
+  }
 }
