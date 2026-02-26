@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { ImportCsvModal } from './components/ImportCsvModal';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -104,152 +105,7 @@ function MapFitBounds({ orders }: { orders: Order[] }) {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function ImportModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
-  const [file, setFile] = useState<File | null>(null);
-  const [token, setToken] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<{ processed: number; failed: number; errors?: string[] } | null>(null);
-  const [error, setError] = useState('');
-  const dropRef = useRef<HTMLDivElement>(null);
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    const f = e.dataTransfer.files[0];
-    if (f) setFile(f);
-  };
-
-  const handleSubmit = async () => {
-    if (!file || !token) return;
-    setLoading(true);
-    setError('');
-    try {
-      const r = await api.importCsv(file, token);
-      setResult(r);
-      onSuccess();
-    } catch (e: any) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div style={styles.modalOverlay} onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={styles.modal}>
-        <div style={styles.modalHeader}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={styles.modalIcon}>
-              <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                <polyline points="17 8 12 3 7 8"/>
-                <line x1="12" y1="3" x2="12" y2="15"/>
-              </svg>
-            </div>
-            <div>
-              <div style={styles.modalTitle}>Import CSV</div>
-              <div style={styles.modalSubtitle}>Upload orders — taxes will be calculated automatically</div>
-            </div>
-          </div>
-          <button style={styles.closeBtn} onClick={onClose}>
-            <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-          </button>
-        </div>
-
-        <div style={styles.modalBody}>
-          {!result ? (
-            <>
-              <div
-                ref={dropRef}
-                style={{ ...styles.dropzone, ...(file ? styles.dropzoneActive : {}) }}
-                onDragOver={e => e.preventDefault()}
-                onDrop={handleDrop}
-                onClick={() => document.getElementById('csv-input')?.click()}
-              >
-                <input id="csv-input" type="file" accept=".csv" style={{ display: 'none' }}
-                  onChange={e => setFile(e.target.files?.[0] || null)} />
-                {file ? (
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={styles.fileIcon}>📄</div>
-                    <div style={styles.fileName}>{file.name}</div>
-                    <div style={styles.fileSize}>{(file.size / 1024).toFixed(1)} KB</div>
-                  </div>
-                ) : (
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={styles.dropIcon}>
-                      <svg width="28" height="28" fill="none" stroke="#94a3b8" strokeWidth="1.5" viewBox="0 0 24 24">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                        <polyline points="17 8 12 3 7 8"/>
-                        <line x1="12" y1="3" x2="12" y2="15"/>
-                      </svg>
-                    </div>
-                    <div style={styles.dropText}>Drop CSV here or <span style={{ color: '#6366f1' }}>browse</span></div>
-                    <div style={styles.dropHint}>Max 10MB · CSV only</div>
-                  </div>
-                )}
-              </div>
-
-              <div style={styles.fieldGroup}>
-                <label style={styles.label}>Auth Token</label>
-                <input
-                  type="text"
-                  placeholder="Enter your admin token"
-                  value={token}
-                  onChange={e => setToken(e.target.value)}
-                  style={styles.input}
-                />
-              </div>
-
-              {error && <div style={styles.errorBox}>{error}</div>}
-
-              <button
-                style={{ ...styles.primaryBtn, opacity: (!file || !token || loading) ? 0.5 : 1 }}
-                disabled={!file || !token || loading}
-                onClick={handleSubmit}
-              >
-                {loading ? (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={styles.spinner} /> Processing...
-                  </span>
-                ) : 'Import Orders'}
-              </button>
-            </>
-          ) : (
-            <div style={styles.resultBox}>
-              <div style={styles.resultSuccess}>
-                <svg width="32" height="32" fill="none" stroke="#10b981" strokeWidth="2" viewBox="0 0 24 24">
-                  <circle cx="12" cy="12" r="10"/>
-                  <polyline points="9 12 11 14 15 10"/>
-                </svg>
-                <div style={styles.resultTitle}>Import Complete</div>
-              </div>
-              <div style={styles.resultStats}>
-                <div style={styles.resultStat}>
-                  <span style={styles.resultStatNum}>{result.processed}</span>
-                  <span style={styles.resultStatLabel}>processed</span>
-                </div>
-                <div style={styles.resultStatDivider} />
-                <div style={styles.resultStat}>
-                  <span style={{ ...styles.resultStatNum, color: result.failed > 0 ? '#f43f5e' : '#10b981' }}>{result.failed}</span>
-                  <span style={styles.resultStatLabel}>failed</span>
-                </div>
-              </div>
-              {result.errors && result.errors.length > 0 && (
-                <div style={styles.errorList}>
-                  {result.errors.slice(0, 5).map((e, i) => (
-                    <div key={i} style={styles.errorItem}>⚠ {e}</div>
-                  ))}
-                </div>
-              )}
-              <button style={styles.primaryBtn} onClick={onClose}>Done</button>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
+// ImportModal → см. ./components/ImportCsvModal.tsx
 
 function ManualOrderModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
   const [lat, setLat] = useState('');
@@ -309,18 +165,18 @@ function ManualOrderModal({ onClose, onSuccess }: { onClose: () => void; onSucce
                 <div style={{ flex: 1 }}>
                   <label style={styles.label}>Latitude</label>
                   <input type="number" placeholder="42.3601" value={lat}
-                    onChange={e => setLat(e.target.value)} style={styles.input} step="any" />
+                         onChange={e => setLat(e.target.value)} style={styles.input} step="any" />
                 </div>
                 <div style={{ flex: 1 }}>
                   <label style={styles.label}>Longitude</label>
                   <input type="number" placeholder="-71.0589" value={lon}
-                    onChange={e => setLon(e.target.value)} style={styles.input} step="any" />
+                         onChange={e => setLon(e.target.value)} style={styles.input} step="any" />
                 </div>
               </div>
               <div style={styles.fieldGroup}>
                 <label style={styles.label}>Subtotal ($)</label>
                 <input type="number" placeholder="99.99" value={subtotal}
-                  onChange={e => setSubtotal(e.target.value)} style={styles.input} step="0.01" min="0" />
+                       onChange={e => setSubtotal(e.target.value)} style={styles.input} step="0.01" min="0" />
               </div>
               <div style={styles.hintBox}>
                 <svg width="14" height="14" fill="none" stroke="#94a3b8" strokeWidth="2" viewBox="0 0 24 24">
@@ -425,7 +281,7 @@ export default function App() {
 
       {/* Modals */}
       {modal === 'import' && (
-        <ImportModal
+        <ImportCsvModal
           onClose={() => setModal(null)}
           onSuccess={() => { showToast('CSV imported successfully'); loadOrders(1); }}
         />
@@ -535,13 +391,13 @@ export default function App() {
                 <option value="pending">Pending</option>
               </select>
               <input type="number" placeholder="Min subtotal" style={styles.filterInput}
-                value={filters.subtotal_min} onChange={e => setFilters(f => ({ ...f, subtotal_min: e.target.value }))} />
+                     value={filters.subtotal_min} onChange={e => setFilters(f => ({ ...f, subtotal_min: e.target.value }))} />
               <input type="number" placeholder="Max subtotal" style={styles.filterInput}
-                value={filters.subtotal_max} onChange={e => setFilters(f => ({ ...f, subtotal_max: e.target.value }))} />
+                     value={filters.subtotal_max} onChange={e => setFilters(f => ({ ...f, subtotal_max: e.target.value }))} />
               <input type="date" style={styles.filterInput} value={filters.from}
-                onChange={e => setFilters(f => ({ ...f, from: e.target.value }))} />
+                     onChange={e => setFilters(f => ({ ...f, from: e.target.value }))} />
               <input type="date" style={styles.filterInput} value={filters.to}
-                onChange={e => setFilters(f => ({ ...f, to: e.target.value }))} />
+                     onChange={e => setFilters(f => ({ ...f, to: e.target.value }))} />
               {(filters.status || filters.subtotal_min || filters.subtotal_max || filters.from || filters.to) && (
                 <button style={styles.clearBtn} onClick={() => setFilters({ status: '', subtotal_min: '', subtotal_max: '', from: '', to: '' })}>
                   Clear
@@ -571,42 +427,42 @@ export default function App() {
             ) : (
               <table style={styles.table}>
                 <thead>
-                  <tr>
-                    {['Order ID', 'Date', 'Subtotal', 'Tax Rate', 'Tax Amt', 'Total', 'Breakdown', 'Jurisdictions'].map(h => (
-                      <th key={h} style={styles.th}>{h}</th>
-                    ))}
-                  </tr>
+                <tr>
+                  {['Order ID', 'Date', 'Subtotal', 'Tax Rate', 'Tax Amt', 'Total', 'Breakdown', 'Jurisdictions'].map(h => (
+                    <th key={h} style={styles.th}>{h}</th>
+                  ))}
+                </tr>
                 </thead>
                 <tbody>
-                  {orders.map((o, i) => (
-                    <tr key={o.id} style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc' }}
+                {orders.map((o, i) => (
+                  <tr key={o.id} style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc' }}
                       onMouseEnter={e => (e.currentTarget.style.background = '#f1f5f9')}
                       onMouseLeave={e => (e.currentTarget.style.background = i % 2 === 0 ? '#fff' : '#f8fafc')}>
-                      <td style={{ ...styles.td, fontWeight: 600, color: '#334155' }}>#{o.id}</td>
-                      <td style={{ ...styles.td, color: '#64748b', fontSize: 12 }}>{new Date(o.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}</td>
-                      <td style={styles.td}>${o.subtotal.toFixed(2)}</td>
-                      <td style={styles.td}><span style={styles.rateBadge}>{(o.composite_tax_rate * 100).toFixed(3)}%</span></td>
-                      <td style={{ ...styles.td, color: '#e11d48', fontWeight: 700 }}>${o.tax_amount.toFixed(2)}</td>
-                      <td style={{ ...styles.td, color: '#059669', fontWeight: 700 }}>${o.total_amount.toFixed(2)}</td>
-                      <td style={styles.td}>
-                        {o.breakdown && (
-                          <div style={styles.bdGrid}>
-                            <span style={{ color: '#94a3b8' }}>St</span><span>{(o.breakdown.state_rate * 100).toFixed(1)}%</span>
-                            <span style={{ color: '#94a3b8' }}>Co</span><span>{(o.breakdown.county_rate * 100).toFixed(2)}%</span>
-                            <span style={{ color: '#94a3b8' }}>Ci</span><span>{(o.breakdown.city_rate * 100).toFixed(1)}%</span>
-                            <span style={{ color: '#94a3b8' }}>Sp</span><span>{(o.breakdown.special_rates * 100).toFixed(2)}%</span>
-                          </div>
-                        )}
-                      </td>
-                      <td style={styles.td}>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                          {(o.jurisdictions || []).map(j => (
-                            <span key={j} style={styles.pill}>{j}</span>
-                          ))}
+                    <td style={{ ...styles.td, fontWeight: 600, color: '#334155' }}>#{o.id}</td>
+                    <td style={{ ...styles.td, color: '#64748b', fontSize: 12 }}>{new Date(o.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}</td>
+                    <td style={styles.td}>${o.subtotal.toFixed(2)}</td>
+                    <td style={styles.td}><span style={styles.rateBadge}>{(o.composite_tax_rate * 100).toFixed(3)}%</span></td>
+                    <td style={{ ...styles.td, color: '#e11d48', fontWeight: 700 }}>${o.tax_amount.toFixed(2)}</td>
+                    <td style={{ ...styles.td, color: '#059669', fontWeight: 700 }}>${o.total_amount.toFixed(2)}</td>
+                    <td style={styles.td}>
+                      {o.breakdown && (
+                        <div style={styles.bdGrid}>
+                          <span style={{ color: '#94a3b8' }}>St</span><span>{(o.breakdown.state_rate * 100).toFixed(1)}%</span>
+                          <span style={{ color: '#94a3b8' }}>Co</span><span>{(o.breakdown.county_rate * 100).toFixed(2)}%</span>
+                          <span style={{ color: '#94a3b8' }}>Ci</span><span>{(o.breakdown.city_rate * 100).toFixed(1)}%</span>
+                          <span style={{ color: '#94a3b8' }}>Sp</span><span>{(o.breakdown.special_rates * 100).toFixed(2)}%</span>
                         </div>
-                      </td>
-                    </tr>
-                  ))}
+                      )}
+                    </td>
+                    <td style={styles.td}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                        {(o.jurisdictions || []).map(j => (
+                          <span key={j} style={styles.pill}>{j}</span>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
                 </tbody>
               </table>
             )}
@@ -624,7 +480,7 @@ export default function App() {
                 else p = pagination.page - 3 + i;
                 return (
                   <button key={p} style={{ ...styles.pageBtn, ...(p === pagination.page ? styles.pageBtnActive : {}) }}
-                    onClick={() => setPage(p)}>{p}</button>
+                          onClick={() => setPage(p)}>{p}</button>
                 );
               })}
               <button style={styles.pageBtn} disabled={pagination.page >= pagination.totalPages} onClick={() => setPage(pagination.page + 1)}>Next →</button>
