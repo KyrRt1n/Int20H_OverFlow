@@ -23,5 +23,8 @@ dist-ssr
 *.sln
 *.sw?
 
+# Project specific
 *.sqlite
-*.sqlite
+.env
+uploads/
+dist/

@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import { importOrders } from '../controllers/importController';
-import { authMiddleware } from '../middleware/authMiddleware';
 
 const router = Router();
 
-// CSV import route (with bonus admin authorization)
-router.post('/import', authMiddleware, importOrders);
+// CSV import route — no auth required per task spec.
+// POST /orders/import
+router.post('/import', importOrders);
 
-export default router;// importRoutes.ts
+export default router;

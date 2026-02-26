@@ -27,8 +27,9 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'Unified Backend' });
 });
 
-// SPA Routing: For any other requests, serve the frontend's index.html
-app.get(/^(?!\/orders|\/tax|\/import|\/health).*/, (req, res) => {
+// SPA Routing: serve index.html for all non-API routes.
+// /orders covers /orders/import too — no need to list /import separately.
+app.get(/^(?!\/orders|\/tax|\/health).*/, (req, res) => {
   res.sendFile(path.resolve(frontendPath, 'index.html'));
 });
 
