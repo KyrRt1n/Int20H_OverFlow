@@ -1,6 +1,5 @@
 import sqlite3 from 'sqlite3';
 import { open, Database } from 'sqlite';
-import { calculateTaxForLocation } from '../../tax/services/taxService';
 
 // Opens a connection to the SQLite database and ensures the schema is up to date.
 // Also runs lightweight migrations so existing databases get the new columns.
@@ -30,6 +29,7 @@ export const connectDB = async (): Promise<Database> => {
   `);
 
   // Migration: add columns that may be missing in databases created before this change.
+  // SQLite does not support "ADD COLUMN IF NOT EXISTS", so we catch the error instead.
   const migrations = [
     `ALTER TABLE orders ADD COLUMN composite_tax_rate REAL`,
     `ALTER TABLE orders ADD COLUMN breakdown TEXT`,
@@ -50,45 +50,20 @@ export const connectDB = async (): Promise<Database> => {
   const countRes = await db.get('SELECT COUNT(*) as count FROM orders');
   if (countRes.count === 0) {
     console.log('🌱 Seeding database with initial data...');
-
-    // Fix #12: Call calculateTaxForLocation() for each seed order
-    // instead of hardcoding NYC rate 8.875% for all rows.
     const seedOrders = [
-      { lat: 40.7128, lon: -74.0060, sub: 150.00, ts: new Date().toISOString() }, // NYC → 8.875%
-      { lat: 42.3314, lon: -74.0667, sub: 89.99,  ts: new Date().toISOString() }, // Albany area → 8%
-      { lat: 43.1566, lon: -77.6088, sub: 210.50, ts: new Date().toISOString() }, // Rochester → 8%
-      { lat: 42.8864, lon: -78.8784, sub: 45.00,  ts: new Date().toISOString() }, // Buffalo (Erie) → 8.75%
+      { lat: 40.7128, lon: -74.0060, sub: 150.00, ts: new Date().toISOString() },
+      { lat: 42.3314, lon: -74.0667, sub: 89.99,  ts: new Date().toISOString() },
+      { lat: 43.1566, lon: -77.6088, sub: 210.50, ts: new Date().toISOString() },
+      { lat: 42.8864, lon: -78.8784, sub: 45.00,  ts: new Date().toISOString() },
     ];
 
     for (const order of seedOrders) {
-      try {
-        const tax = await calculateTaxForLocation(order.lat, order.lon, order.sub);
-
-        await db.run(
-          `INSERT INTO orders (latitude, longitude, subtotal, timestamp, tax_amount, total_amount, composite_tax_rate, jurisdictions, breakdown)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            order.lat,
-            order.lon,
-            order.sub,
-            order.ts,
-            tax.tax_amount,
-            tax.total_amount,
-            tax.composite_tax_rate,
-            JSON.stringify(tax.jurisdictions),
-            JSON.stringify(tax.breakdown),
-          ]
-        );
-
-        console.log(`  ✓ Seeded order (${order.lat}, ${order.lon}) — rate: ${(tax.composite_tax_rate * 100).toFixed(3)}% — jurisdictions: ${tax.jurisdictions.join(', ')}`);
-      } catch (err: any) {
-        console.warn(`  ⚠ Seed order (${order.lat}, ${order.lon}) failed: ${err?.message}. Inserting with null tax fields.`);
-        await db.run(
-          `INSERT INTO orders (latitude, longitude, subtotal, timestamp, tax_amount, total_amount, composite_tax_rate, jurisdictions, breakdown)
-           VALUES (?, ?, ?, ?, NULL, ?, NULL, NULL, NULL)`,
-          [order.lat, order.lon, order.sub, order.ts, order.sub]
-        );
-      }
+      // Basic seed: let the tax service handle these later or just insert defaults
+      await db.run(
+        `INSERT INTO orders (latitude, longitude, subtotal, timestamp, tax_amount, total_amount, composite_tax_rate, jurisdictions, breakdown) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [order.lat, order.lon, order.sub, order.ts, order.sub * 0.08875, order.sub * 1.08875, 0.08875, JSON.stringify(['New York State', 'NYC']), JSON.stringify({state_rate: 0.04, county_rate: 0.04875, city_rate: 0, special_rates: 0})]
+      );
     }
   }
 
