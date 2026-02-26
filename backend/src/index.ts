@@ -15,7 +15,7 @@ app.use(express.json());
 // Mount routes
 app.use('/orders', orderRoutes);
 app.use('/tax', taxRoutes);
-app.use('/import', importRoutes);
+app.use('/orders', importRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
@@ -30,7 +30,7 @@ const startServer = async () => {
       console.log(`🚀 UNIFIED BACKEND RUNNING ON PORT ${PORT}`);
       console.log(`- Orders: http://localhost:${PORT}/orders`);
       console.log(`- Tax:    http://localhost:${PORT}/tax`);
-      console.log(`- Import: http://localhost:${PORT}/import`);
+      console.log(`- Import: http://localhost:${PORT}/orders/import`);
       console.log('═══════════════════════════════════════\n');
     });
   } catch (error) {

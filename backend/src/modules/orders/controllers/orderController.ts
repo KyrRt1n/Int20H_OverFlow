@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { connectDB } from '../db/database';
+import { calculateTaxForLocation } from '../../tax/services/taxService';
 
 // GET /orders
 // Returns a paginated, filterable list of orders.
@@ -70,37 +71,38 @@ export const getOrders = async (req: Request, res: Response) => {
 
 // POST /orders
 // Creates a single order manually.
+// Tax is calculated automatically based on delivery coordinates.
 //
-// Body (all required):
-//   latitude, longitude   — delivery coordinates within New York State
-//   subtotal              — wellness kit price before tax
-//   timestamp             — order timestamp (ISO string)
-//   tax_amount            — calculated tax amount
-//   total_amount          — subtotal + tax_amount
-//   composite_tax_rate    — combined tax rate (e.g. 0.08875)
-//   breakdown             — { state_rate, county_rate, city_rate, special_rates }
-//   jurisdictions         — string[] of jurisdiction names that were applied
+// Body (required):
+//   latitude   — delivery coordinate (within New York State)
+//   longitude  — delivery coordinate (within New York State)
+//   subtotal   — wellness kit price before tax
+//
+// Body (optional):
+//   timestamp  — order timestamp (ISO string); defaults to now
 export const createOrder = async (req: Request, res: Response) => {
   try {
-    const db = await connectDB();
+    const { latitude, longitude, subtotal, timestamp } = req.body;
 
-    const {
-      latitude,
-      longitude,
-      subtotal,
-      timestamp,
-      tax_amount,
-      total_amount,
-      composite_tax_rate,
-      breakdown,
-      jurisdictions,
-    } = req.body;
-
-    // Basic validation
+    // Validate required fields
     if (latitude == null || longitude == null || subtotal == null) {
       res.status(400).json({ error: 'latitude, longitude and subtotal are required.' });
       return;
     }
+
+    const lat = parseFloat(latitude);
+    const lon = parseFloat(longitude);
+    const sub = parseFloat(subtotal);
+
+    if (isNaN(lat) || isNaN(lon) || isNaN(sub)) {
+      res.status(400).json({ error: 'latitude, longitude and subtotal must be valid numbers.' });
+      return;
+    }
+
+    // Auto-calculate tax based on delivery coordinates
+    const tax = await calculateTaxForLocation(lat, lon, sub);
+
+    const db = await connectDB();
 
     const result = await db.run(
       `INSERT INTO orders
@@ -108,24 +110,38 @@ export const createOrder = async (req: Request, res: Response) => {
          composite_tax_rate, breakdown, jurisdictions)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        latitude,
-        longitude,
-        subtotal,
-        timestamp,
-        tax_amount,
-        total_amount,
-        composite_tax_rate,
-        breakdown     ? JSON.stringify(breakdown)     : null,
-        jurisdictions ? JSON.stringify(jurisdictions) : null,
+        lat,
+        lon,
+        sub,
+        timestamp ?? new Date().toISOString(),
+        tax.tax_amount,
+        tax.total_amount,
+        tax.composite_tax_rate,
+        JSON.stringify(tax.breakdown),
+        JSON.stringify(tax.jurisdictions),
       ]
     );
 
     res.status(201).json({
       message:  'Order created successfully.',
       orderId:  result.lastID,
+      tax: {
+        composite_tax_rate: tax.composite_tax_rate,
+        tax_amount:         tax.tax_amount,
+        total_amount:       tax.total_amount,
+        breakdown:          tax.breakdown,
+        jurisdictions:      tax.jurisdictions,
+      },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to create order:', error);
+
+    // Surface NY-bounds error as 400 instead of 500
+    if (error.message?.includes('outside of New York State')) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
+
     res.status(500).json({ error: 'Internal server error while creating order.' });
   }
 };
