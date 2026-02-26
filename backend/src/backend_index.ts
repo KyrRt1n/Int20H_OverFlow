@@ -5,6 +5,7 @@ import { connectDB } from './modules/orders/db/database';
 import orderRoutes from './modules/orders/routes/orderRoutes';
 import taxRoutes from './modules/tax/routes/taxRoutes';
 import importRoutes from './modules/import/routes/importRoutes';
+import authRoutes from './modules/auth/routes/authRoutes';
 import path from 'path';
 
 const app = express();
@@ -17,6 +18,7 @@ app.use(express.json());
 app.use('/orders', orderRoutes);
 app.use('/tax', taxRoutes);
 app.use('/orders', importRoutes);
+app.use('/auth', authRoutes);
 
 // Static files from frontend
 const frontendPath = path.resolve(__dirname, '../../frontend/dist');
@@ -29,7 +31,7 @@ app.get('/health', (req, res) => {
 
 // SPA Routing: serve index.html for all non-API routes.
 // /orders covers /orders/import too — no need to list /import separately.
-app.get(/^(?!\/orders|\/tax|\/health).*/, (req, res) => {
+app.get(/^(?!\/orders|\/tax|\/health|\/auth).*/, (req, res) => {
   res.sendFile(path.resolve(frontendPath, 'index.html'));
 });
 

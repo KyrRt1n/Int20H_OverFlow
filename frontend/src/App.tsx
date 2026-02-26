@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ImportCsvModal } from './components/ImportCsvModal';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import Login from './Login';
 
 // Fix Leaflet icons
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -61,15 +62,18 @@ const api = {
     if (filters.subtotal_max) params.set('subtotal_max', filters.subtotal_max);
     if (filters.from)        params.set('from', filters.from);
     if (filters.to)          params.set('to', filters.to);
-    const res = await fetch(`/orders?${params}`);
+    const token = localStorage.getItem('admin_token') || '';
+    const res = await fetch(`/orders?${params}`, { headers: { Authorization: token } });
+    if (res.status === 401) { localStorage.removeItem('admin_token'); window.location.reload(); }
     if (!res.ok) throw new Error('Failed to fetch orders');
     return res.json() as Promise<{ data: Order[]; pagination: Pagination; summary: { total_orders: number; total_tax: number; total_revenue: number } }>;
   },
 
   createOrder: async (lat: number, lon: number, subtotal: number) => {
+    const token = localStorage.getItem('admin_token') || '';
     const res = await fetch('/orders', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: token },
       body: JSON.stringify({ latitude: lat, longitude: lon, subtotal }),
     });
     const data = await res.json();
@@ -77,7 +81,8 @@ const api = {
     return data;
   },
 
-  importCsv: async (file: File, token: string) => {
+  importCsv: async (file: File) => {
+    const token = localStorage.getItem('admin_token') || '';
     const fd = new FormData();
     fd.append('file', file);
     const res = await fetch('/orders/import', {
@@ -92,17 +97,6 @@ const api = {
 };
 
 // ─── Map helpers ──────────────────────────────────────────────────────────────
-
-function MapFitBounds({ orders }: { orders: Order[] }) {
-  const map = useMap();
-  useEffect(() => {
-    if (orders.length > 0) {
-      const bounds = L.latLngBounds(orders.map(o => [o.latitude, o.longitude]));
-      map.fitBounds(bounds, { padding: [40, 40] });
-    }
-  }, [orders.length]);
-  return null;
-}
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -235,6 +229,20 @@ function ManualOrderModal({ onClose, onSuccess }: { onClose: () => void; onSucce
 // ─── Main App ─────────────────────────────────────────────────────────────────
 
 export default function App() {
+  const [token, setToken] = useState<string | null>(() => localStorage.getItem('admin_token'));
+
+  const handleLogin = (t: string) => setToken(t);
+  const handleLogout = () => {
+    localStorage.removeItem('admin_token');
+    setToken(null);
+  };
+
+  if (!token) return <Login onLogin={handleLogin} />;
+
+  return <Dashboard onLogout={handleLogout} />;
+}
+
+function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [pagination, setPagination] = useState<Pagination>({ total: 0, page: 1, limit: 15, totalPages: 1 });
   const [summary, setSummary] = useState({ total_orders: 0, total_tax: 0, total_revenue: 0 });
@@ -267,7 +275,8 @@ export default function App() {
 
   const totalTax = summary.total_tax;
   const totalRevenue = summary.total_revenue;
-  const mapCenter: [number, number] = [42.7, -75.5];
+  const mapCenter: [number, number] = [42.9538, -75.5268];
+  const NY_BOUNDS = L.latLngBounds(L.latLng(24.396308, -125.0), L.latLng(49.384358, -66.93457));
 
   const setPage = (p: number) => {
     setPagination(prev => ({ ...prev, page: p }));
@@ -357,7 +366,10 @@ export default function App() {
           </div>
         </div>
 
-        <div style={styles.sidebarFooter}>New York State Jurisdiction</div>
+        <div style={styles.sidebarFooter}>
+          <span>New York State Jurisdiction</span>
+          <button onClick={onLogout} style={styles.logoutBtn}>Logout</button>
+        </div>
       </aside>
 
       {/* Main */}
@@ -365,9 +377,8 @@ export default function App() {
 
         {/* Map */}
         <div style={styles.mapWrap}>
-          <MapContainer center={mapCenter} zoom={7} style={{ height: '100%', width: '100%' }}>
+          <MapContainer center={mapCenter} zoom={7} minZoom={4} maxZoom={18} maxBounds={NY_BOUNDS} maxBoundsViscosity={1.0} style={{ height: '100%', width: '100%' }}>
             <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" attribution="© OpenStreetMap & CartoDB" />
-            <MapFitBounds orders={orders} />
             {orders.slice(0, 150).map(o => (
               <Marker key={o.id} position={[o.latitude, o.longitude]}>
                 <Popup>
@@ -624,6 +635,20 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 11,
     color: '#94a3b8',
     textAlign: 'center' as const,
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: 8,
+    alignItems: 'center',
+  },
+  logoutBtn: {
+    padding: '6px 16px',
+    border: '1px solid #fecdd3',
+    borderRadius: 8,
+    background: '#fff1f2',
+    color: '#f43f5e',
+    fontSize: 12,
+    fontWeight: 600,
+    cursor: 'pointer',
   },
   // Main
   main: { flex: 1, display: 'flex', flexDirection: 'column' as const, overflow: 'hidden' },
