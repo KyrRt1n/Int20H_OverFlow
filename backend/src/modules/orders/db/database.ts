@@ -45,5 +45,27 @@ export const connectDB = async (): Promise<Database> => {
   }
 
   console.log('✅ SQLite database connected, orders table ready.');
+
+  // Check if table is empty and seed it if so
+  const countRes = await db.get('SELECT COUNT(*) as count FROM orders');
+  if (countRes.count === 0) {
+    console.log('🌱 Seeding database with initial data...');
+    const seedOrders = [
+      { lat: 40.7128, lon: -74.0060, sub: 150.00, ts: new Date().toISOString() },
+      { lat: 42.3314, lon: -74.0667, sub: 89.99,  ts: new Date().toISOString() },
+      { lat: 43.1566, lon: -77.6088, sub: 210.50, ts: new Date().toISOString() },
+      { lat: 42.8864, lon: -78.8784, sub: 45.00,  ts: new Date().toISOString() },
+    ];
+
+    for (const order of seedOrders) {
+      // Basic seed: let the tax service handle these later or just insert defaults
+      await db.run(
+        `INSERT INTO orders (latitude, longitude, subtotal, timestamp, tax_amount, total_amount, composite_tax_rate, jurisdictions, breakdown) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [order.lat, order.lon, order.sub, order.ts, order.sub * 0.08875, order.sub * 1.08875, 0.08875, JSON.stringify(['New York State', 'NYC']), JSON.stringify({state_rate: 0.04, county_rate: 0.04875, city_rate: 0, special_rates: 0})]
+      );
+    }
+  }
+
   return db;
 };

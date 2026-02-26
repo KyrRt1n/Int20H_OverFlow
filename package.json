@@ -1,0 +1,13 @@
+{
+  "name": "betterme-drone-delivery",
+  "version": "1.0.0",
+  "description": "Unified Drone Delivery Tax System",
+  "scripts": {
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "build:frontend": "cd frontend && npm run build",
+    "start": "cd backend && npm start",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "setup": "npm run install:all && npm run build:frontend"
+  }
+}

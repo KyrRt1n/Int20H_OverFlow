@@ -2,7 +2,35 @@
 
 A full-stack application for managing orders, calculating location-based taxes (New York State), and importing data from CSV files.
 
-## Project Structure
+## Quick Start (Unified Mode)
+
+This project has been updated to run as a **single unified service**. You can now serve the frontend directly from the backend.
+
+### 1. Setup & Build
+From the root directory, run:
+```powershell
+npm run setup
+```
+This will install all dependencies for both frontend and backend, and then build the React app.
+
+### 2. Configure (Optional)
+Create a `.env` file in the `backend/` folder:
+```env
+PORT=3000
+GOOGLE_MAPS_API_KEY=your_google_maps_key
+ADMIN_TOKEN=secret-token-123
+```
+
+### 3. Start
+Launch the server:
+```powershell
+npm start
+```
+The application will be available at: **[http://localhost:3000/](http://localhost:3000/)**
+
+---
+
+## Detailed Project Structure
 
 - **`/backend`**: Unified Node.js (Express + TypeScript) service.
   - **Orders Module**: Manages order storage and retrieval using SQLite.
@@ -37,21 +65,23 @@ A full-stack application for managing orders, calculating location-based taxes (
    npm install
    ```
 
-## Running the Application
+## Running the Application (Separate Mode)
+
+If you're making changes and need auto-reload / HMR:
 
 ### Start the Backend
 ```bash
 cd backend
-npm start
+npm run dev
 ```
-The server will be available at `http://localhost:3000`.
 
-### Start the Frontend
+### Start the Frontend (Vite)
 ```bash
 cd frontend
 npm run dev
 ```
-The application will be available at `http://localhost:5173` (or the port specified by Vite).
+The application will be available at `http://localhost:5173`.
+NOTE: In this mode, ensure your `App.tsx` API calls are directed at `http://localhost:3000`. (By default, they use relative paths for the unified mode).
 
 ## API Documentation
 
