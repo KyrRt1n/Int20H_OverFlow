@@ -1,72 +1,86 @@
 import * as fs from 'fs';
 import csv from 'csv-parser';
-import axios from 'axios';
+import { calculateTaxForLocation } from '../../tax/services/taxService';
+import { connectDB } from '../../orders/db/database';
 
-export const processCsvFile = (filePath: string): Promise<any[]> => {
+export interface ImportResult {
+  processed: number;
+  failed:    number;
+  errors:    { row: number; reason: string }[];
+}
+
+export const processCsvFile = (filePath: string): Promise<ImportResult> => {
   return new Promise((resolve, reject) => {
-    const results: any[] = [];
     const promises: Promise<void>[] = [];
+    const errors:   { row: number; reason: string }[] = [];
+    let processed = 0;
+    let rowIndex  = 0;
 
     fs.createReadStream(filePath)
       .pipe(csv())
       .on('data', (row) => {
-        // Оборачиваем логику в асинхронную функцию для каждой строки
+        const currentRow = ++rowIndex;
+
         const processRow = async () => {
+          // --- Validate required fields ---
+          const lat      = parseFloat(row.latitude);
+          const lon      = parseFloat(row.longitude);
+          const subtotal = parseFloat(row.subtotal);
+          const timestamp: string = row.timestamp ?? new Date().toISOString();
+
+          if (isNaN(lat) || isNaN(lon) || isNaN(subtotal)) {
+            errors.push({ row: currentRow, reason: `Invalid numeric fields — lat=${row.latitude}, lon=${row.longitude}, subtotal=${row.subtotal}` });
+            return;
+          }
+
           try {
-            const lat = parseFloat(row.latitude);
-            const lon = parseFloat(row.longitude);
-            const subtotal = parseFloat(row.subtotal);
-            const timestamp = row.timestamp;
+            // --- Calculate tax for delivery coordinates ---
+            const tax = await calculateTaxForLocation(lat, lon, subtotal);
 
-            // 1. Call Tax service internally
-            const { calculateTaxForLocation } = await import('../../tax/services/taxService');
-            const taxData = await calculateTaxForLocation(lat, lon, subtotal);
-
-            // 2. Form final order object
-            const orderData = {
-              latitude: lat,
-              longitude: lon,
-              subtotal: subtotal,
-              timestamp: timestamp,
-              ...taxData // Add calculated taxes
-            };
-
-            // 3. Save order via internal DB call
-            const { connectDB } = await import('../../orders/db/database');
+            // --- Persist the full order including tax breakdown ---
             const db = await connectDB();
             await db.run(
-              'INSERT INTO orders (latitude, longitude, subtotal, timestamp, tax_amount, total_amount) VALUES (?, ?, ?, ?, ?, ?)',
-              [orderData.latitude, orderData.longitude, orderData.subtotal, orderData.timestamp, orderData.tax_amount, orderData.total_amount]
+              `INSERT INTO orders
+                (latitude, longitude, subtotal, timestamp,
+                 tax_amount, total_amount, composite_tax_rate,
+                 breakdown, jurisdictions)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [
+                lat,
+                lon,
+                subtotal,
+                timestamp,
+                tax.tax_amount,
+                tax.total_amount,
+                tax.composite_tax_rate,
+                JSON.stringify(tax.breakdown),
+                JSON.stringify(tax.jurisdictions),
+              ]
             );
 
-            // Добавляем в массив успешных результатов
-            results.push(orderData);
-          } catch (error) {
-            // Если одна строка сломалась (например, кривые координаты), мы просто логируем это,
-            // чтобы парсинг всего файла не упал из-за одной ошибки.
-            console.error('Ошибка при обработке строки CSV:', error);
+            processed++;
+          } catch (err: any) {
+            // One bad row must not abort the entire import
+            errors.push({ row: currentRow, reason: err?.message ?? 'Unknown error' });
           }
         };
 
-        // Запускаем обработку строки и пушим промис в массив
         promises.push(processRow());
       })
       .on('end', async () => {
         try {
-          await Promise.all(promises); // Ждем, пока все HTTP-запросы завершатся
+          await Promise.all(promises);
 
-          // Удаляем временный файл после обработки
+          // Clean up the temp file after processing
           if (fs.existsSync(filePath)) {
             fs.unlinkSync(filePath);
           }
 
-          resolve(results);
-        } catch (error) {
-          reject(error);
+          resolve({ processed, failed: errors.length, errors });
+        } catch (err) {
+          reject(err);
         }
       })
-      .on('error', (error) => {
-        reject(error);
-      });
+      .on('error', reject);
   });
 };
