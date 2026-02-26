@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import multer from 'multer';
+import multer, { FileFilterCallback } from 'multer';
 import * as fs from 'fs';
 import { processCsvFile } from '../services/csvParserService';
 
@@ -8,10 +8,43 @@ if (!fs.existsSync(UPLOAD_DIR)) {
   fs.mkdirSync(UPLOAD_DIR);
 }
 
-const upload = multer({ dest: UPLOAD_DIR });
+// 1. Фильтр по типу файла
+const csvFileFilter = (
+  req: Request,
+  file: Express.Multer.File,
+  cb: FileFilterCallback
+) => {
+  const allowedMimeTypes = ['text/csv', 'application/vnd.ms-excel', 'text/plain'];
+  if (allowedMimeTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error(`Invalid file type: ${file.mimetype}. Only CSV files are allowed.`));
+  }
+};
+
+// 2. Ограничение размера — 10 МБ
+const upload = multer({
+  dest: UPLOAD_DIR,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10 MB
+  },
+  fileFilter: csvFileFilter,
+});
 
 export const importOrders = [
   upload.single('file'),
+  // 3. Обработка ошибок multer (размер / тип)
+  (err: any, req: Request, res: Response, next: Function) => {
+    if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
+      res.status(400).json({ error: 'File too large. Maximum allowed size is 10 MB.' });
+      return;
+    }
+    if (err) {
+      res.status(400).json({ error: err.message });
+      return;
+    }
+    next();
+  },
   async (req: Request, res: Response): Promise<void> => {
     try {
       if (!req.file) {
@@ -25,7 +58,6 @@ export const importOrders = [
         message:   'Import complete.',
         processed: result.processed,
         failed:    result.failed,
-        // Only include errors array if something actually failed — keeps response clean on success
         ...(result.failed > 0 && { errors: result.errors }),
       });
     } catch (error) {
