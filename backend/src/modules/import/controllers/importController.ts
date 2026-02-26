@@ -1,6 +1,7 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response } from 'express';
 import multer, { FileFilterCallback } from 'multer';
 import * as fs from 'fs';
+import * as path from 'path';
 import { processCsvFile } from '../services/csvParserService';
 
 const UPLOAD_DIR = 'uploads/';
@@ -8,21 +9,29 @@ if (!fs.existsSync(UPLOAD_DIR)) {
   fs.mkdirSync(UPLOAD_DIR);
 }
 
-// 1. Фильтр по типу файла
 const csvFileFilter = (
   req: Request,
   file: Express.Multer.File,
   cb: FileFilterCallback
 ) => {
-  const allowedMimeTypes = ['text/csv', 'application/vnd.ms-excel', 'text/plain'];
-  if (allowedMimeTypes.includes(file.mimetype)) {
+  const allowedMimeTypes = [
+    'text/csv',
+    'application/vnd.ms-excel',
+    'text/plain',
+    'application/octet-stream', // Windows Chrome иногда шлёт это для .csv
+  ];
+
+  const ext = path.extname(file.originalname).toLowerCase();
+
+  // Разрешаем если mimetype в списке ИЛИ расширение .csv
+  // (защита от браузеров которые неправильно определяют MIME)
+  if (allowedMimeTypes.includes(file.mimetype) || ext === '.csv') {
     cb(null, true);
   } else {
-    cb(new Error(`Invalid file type: ${file.mimetype}. Only CSV files are allowed.`));
+    cb(new Error(`Invalid file type: "${file.mimetype}" (${file.originalname}). Only .csv files are allowed.`));
   }
 };
 
-// 2. Ограничение размера — 10 МБ
 const upload = multer({
   dest: UPLOAD_DIR,
   limits: {
@@ -31,8 +40,7 @@ const upload = multer({
   fileFilter: csvFileFilter,
 });
 
-// Оборачиваем upload.single() в Promise — единственный надёжный способ
-// поймать MulterError внутри async-обработчика без глобального error-handler.
+// Оборачиваем upload.single() в Promise чтобы поймать MulterError в try/catch
 const uploadSingle = (req: Request, res: Response): Promise<void> => {
   return new Promise((resolve, reject) => {
     upload.single('file')(req, res, (err) => {
@@ -46,7 +54,6 @@ export const importOrders = async (req: Request, res: Response): Promise<void> =
   try {
     await uploadSingle(req, res);
   } catch (err: any) {
-    // Multer бросает ошибки сюда — размер файла, неверный тип и т.д.
     if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
       res.status(400).json({ error: 'File too large. Maximum allowed size is 10 MB.' });
       return;
