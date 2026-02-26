@@ -3,7 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import { connectDB } from './modules/orders/db/database';
 import orderRoutes from './modules/orders/routes/orderRoutes';
-import taxRoutes from './modules/tax/routes/taxRoutes';
+import { taxRoutes } from './modules/tax/routes/taxRoutes';
 import importRoutes from './modules/import/routes/importRoutes';
 import path from 'path';
 

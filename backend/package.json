@@ -21,7 +21,7 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/multer": "^1.4.12",
-    "@types/node": "^25.3.0",
+    "@types/node": "^25.3.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   }
