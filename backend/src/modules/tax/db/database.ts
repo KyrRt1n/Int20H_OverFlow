@@ -1,16 +1,16 @@
-// Примерная логика для src/db/database.ts
+// Example logic for src/db/database.ts
 import sqlite3 from 'sqlite3';
 import { open } from 'sqlite';
 
-// Открываем базу
+// Open database
 export const openDb = async () => {
   return open({
-    filename: './tax.db', // Файл создастся в корне
+    filename: './tax.db', // File will be created in root
     driver: sqlite3.Database
   });
 };
 
-// Функция инициализации таблицы
+// Table initialization function
 export const initDb = async () => {
   const db = await openDb();
   await db.exec(`

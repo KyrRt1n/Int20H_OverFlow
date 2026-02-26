@@ -6,9 +6,9 @@ const PORT = process.env.PORT || 3003;
 
 app.use(express.json());
 
-// Подключаем роуты импорта
+// Import routes mounting
 app.use('/', importRoutes);
 
 app.listen(PORT, () => {
-  console.log(`Сервер запущен на порту ${PORT}`);
-});// Запуск Express сервера
+  console.log(`Server is running on port ${PORT}`);
+});// Express server start

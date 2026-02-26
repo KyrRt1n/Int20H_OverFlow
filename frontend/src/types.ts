@@ -14,10 +14,10 @@ export interface ProcessedOrder {
     timestamp: string;
     subtotal: number;
 
-    // Розраховані дані (те, що вимагає ТЗ)
+    // Calculated data (as required by the technical task)
     composite_tax_rate: number;
     tax_amount: number;
     total_amount: number;
     breakdown: TaxBreakdown;
-    jurisdictions: string[]; // бонусне завдання з ТЗ
+    jurisdictions: string[]; // bonus task from the technical task
 }

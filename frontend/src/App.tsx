@@ -4,7 +4,7 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
-// Фікс іконок Leaflet
+// Leaflet icons fix
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
     iconRetinaUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
@@ -37,8 +37,8 @@ function App() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Зміни порт на той, де працює твій бекенд (наприклад, 5000)
-        axios.get<Order[]>('http://localhost:5000/api/orders')
+        // Change the port to the one your backend is running on (e.g., 3000)
+        axios.get<Order[]>('http://localhost:3000/orders')
             .then(res => {
                 setOrders(res.data);
                 setLoading(false);
@@ -54,7 +54,7 @@ function App() {
             <div className="flex h-screen items-center justify-center bg-slate-50">
                 <div className="flex flex-col items-center gap-3">
                     <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-                    <p className="text-slate-500 font-medium tracking-wide">Завантаження даних системи...</p>
+                    <p className="text-slate-500 font-medium tracking-wide">Loading system data...</p>
                 </div>
             </div>
         );
@@ -67,7 +67,7 @@ function App() {
     return (
         <div className="flex h-screen bg-slate-50 text-slate-800 font-sans selection:bg-indigo-100">
 
-            {/* САЙДБАР */}
+            {/* SIDEBAR */}
             <aside className="w-[340px] bg-white border-r border-slate-200 flex flex-col z-20 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
                 <div className="p-8 border-b border-slate-100">
                     <div className="flex items-center gap-3 mb-2">
@@ -80,7 +80,7 @@ function App() {
                 </div>
 
                 <div className="p-6 flex-1 overflow-y-auto space-y-5">
-                    {/* Картка 1: Deliveries */}
+                    {/* Card 1: Deliveries */}
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
                         <div className="flex items-center gap-3 mb-3">
                             <div className="w-2 h-2 rounded-full bg-blue-500"></div>
@@ -89,7 +89,7 @@ function App() {
                         <p className="text-4xl font-extrabold text-slate-800">{orders.length}</p>
                     </div>
 
-                    {/* Картка 2: Taxes */}
+                    {/* Card 2: Taxes */}
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
                         <div className="absolute top-0 right-0 w-24 h-24 bg-rose-50 rounded-bl-full -z-10"></div>
                         <div className="flex items-center gap-3 mb-3">
@@ -102,7 +102,7 @@ function App() {
                         </p>
                     </div>
 
-                    {/* Картка 3: Revenue */}
+                    {/* Card 3: Revenue */}
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
                         <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-bl-full -z-10"></div>
                         <div className="flex items-center gap-3 mb-3">
@@ -121,13 +121,13 @@ function App() {
                 </div>
             </aside>
 
-            {/* ГОЛОВНИЙ КОНТЕНТ */}
+            {/* MAIN CONTENT */}
             <main className="flex-1 flex flex-col relative overflow-hidden">
 
-                {/* КАРТА */}
+                {/* MAP */}
                 <div className="h-[45%] w-full relative z-0 border-b border-slate-200">
                     <MapContainer center={center} zoom={7} style={{ height: '100%', width: '100%' }}>
-                        {/* Використовуємо світлу і чисту тему карти (CartoDB Positron) */}
+                        {/* Using a light and clean map theme (CartoDB Positron) */}
                         <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" />
                         {orders.slice(0, 150).map(o => (
                             <Marker key={o.id} position={[o.latitude, o.longitude]}>
@@ -142,7 +142,7 @@ function App() {
                     </MapContainer>
                 </div>
 
-                {/* ТАБЛИЦЯ ПОДАТКІВ */}
+                {/* TAX TABLE */}
                 <div className="h-[55%] overflow-auto p-8 bg-slate-50">
                     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                         <table className="w-full text-left border-collapse">

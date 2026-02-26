@@ -4,7 +4,7 @@ import { authMiddleware } from '../middleware/authMiddleware';
 
 const router = Router();
 
-// Маршрут для импорта CSV (с бонусной авторизацией админа)
+// CSV import route (with bonus admin authorization)
 router.post('/orders/import', authMiddleware, importOrders);
 
 export default router;// importRoutes.ts

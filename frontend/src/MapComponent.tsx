@@ -5,7 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { Transaction } from './types';
 
-// Фікс для іконок маркерів у Leaflet
+// Fix for marker icons in Leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
     iconRetinaUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
@@ -18,7 +18,7 @@ interface MapComponentProps {
 }
 
 const MapComponent: React.FC<MapComponentProps> = ({ data }) => {
-    // Центруємо карту по першій точці (або Нью-Йорк за замовчуванням)
+    // Center the map on the first point (or New York by default)
     const defaultCenter: [number, number] = data.length > 0
         ? [data[0].latitude, data[0].longitude]
         : [40.7128, -74.0060];
@@ -34,9 +34,9 @@ const MapComponent: React.FC<MapComponentProps> = ({ data }) => {
                 <Marker key={point.id} position={[point.latitude, point.longitude]}>
                     <Popup>
                         <div>
-                            <strong>ID транзакції:</strong> {point.id} <br />
-                            <strong>Сума:</strong> ${point.subtotal} <br />
-                            <strong>Дата:</strong> {new Date(point.timestamp).toLocaleString()}
+                            <strong>Transaction ID:</strong> {point.id} <br />
+                            <strong>Amount:</strong> ${point.subtotal} <br />
+                            <strong>Date:</strong> {new Date(point.timestamp).toLocaleString()}
                         </div>
                     </Popup>
                 </Marker>

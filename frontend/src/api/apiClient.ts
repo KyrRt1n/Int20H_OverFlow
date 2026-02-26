@@ -1,6 +1,6 @@
 export const apiClient = {
   getOrders: async () => {
-    // Здесь будет твой запрос к бэкенду
+    // Your request to the backend will be here
     console.log("Fetching orders...");
   }
-};// Налаштування axios до 3-х різних бекендів
+};// Axios configuration for 3 different backends

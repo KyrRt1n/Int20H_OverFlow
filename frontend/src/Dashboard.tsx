@@ -6,12 +6,12 @@ const Dashboard: React.FC = () => {
     const [orders, setOrders] = useState<ProcessedOrder[]>([]);
     const [isLoading, setIsLoading] = useState<boolean>(true);
 
-    // Симуляція завантаження даних з бекенду
+    // Simulation of data loading from backend
     useEffect(() => {
         const fetchOrders = async () => {
             try {
-                // У реальному проекті тут буде: await fetch('http://localhost:3000/api/orders')
-                // Поки що використаємо мокові дані, щоб показати, як виглядає UI
+                // In a real project it would be: await fetch('http://localhost:3000/orders')
+                // For now use mock data to show UI look
                 const mockData: ProcessedOrder[] = [
                     {
                         id: 1,
@@ -30,16 +30,16 @@ const Dashboard: React.FC = () => {
                         },
                         jurisdictions: ["New York State", "Erie County"]
                     },
-                    // Додай більше мокових даних за потреби...
+                    // Add more mock data as needed...
                 ];
 
-                // Імітація затримки мережі
+                // Network delay imitation
                 setTimeout(() => {
                     setOrders(mockData);
                     setIsLoading(false);
                 }, 1000);
             } catch (error) {
-                console.error("Помилка завантаження даних", error);
+                console.error("Data loading error", error);
                 setIsLoading(false);
             }
         };
@@ -47,54 +47,54 @@ const Dashboard: React.FC = () => {
         fetchOrders();
     }, []);
 
-    // Підрахунок загальної статистики
+    // Total statistics calculation
     const totalRevenue = orders.reduce((sum, order) => sum + order.total_amount, 0);
     const totalTaxes = orders.reduce((sum, order) => sum + order.tax_amount, 0);
 
     if (isLoading) {
-        return <div className="flex justify-center items-center h-screen">Завантаження даних системи оподаткування...</div>;
+        return <div className="flex justify-center items-center h-screen">Loading tax system data...</div>;
     }
 
     return (
         <div className="min-h-screen bg-gray-50 p-8 font-sans">
             <div className="max-w-7xl mx-auto">
 
-                {/* Хедер */}
+                {/* Header */}
                 <header className="mb-8">
                     <h1 className="text-3xl font-bold text-gray-900">BetterMe: Instant Wellness Kits</h1>
-                    <p className="text-gray-500 mt-2">Панель адміністрування та податкового звіту (New York State)</p>
+                    <p className="text-gray-500 mt-2">Administration and tax report panel (New York State)</p>
                 </header>
 
-                {/* Віджети статистики */}
+                {/* Statistics widgets */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                        <h3 className="text-sm font-medium text-gray-500 mb-1">Кількість доставок</h3>
+                        <h3 className="text-sm font-medium text-gray-500 mb-1">Number of deliveries</h3>
                         <p className="text-3xl font-bold text-gray-900">{orders.length}</p>
                     </div>
                     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                        <h3 className="text-sm font-medium text-gray-500 mb-1">Загальна сума зборів (Taxes)</h3>
+                        <h3 className="text-sm font-medium text-gray-500 mb-1">Total taxes collected</h3>
                         <p className="text-3xl font-bold text-red-600">${totalTaxes.toFixed(2)}</p>
                     </div>
                     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                        <h3 className="text-sm font-medium text-gray-500 mb-1">Загальний дохід (Total)</h3>
+                        <h3 className="text-sm font-medium text-gray-500 mb-1">Total revenue</h3>
                         <p className="text-3xl font-bold text-green-600">${totalRevenue.toFixed(2)}</p>
                     </div>
                 </div>
 
-                {/* Таблиця замовлень */}
+                {/* Orders table */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead>
                             <tr className="bg-gray-50 text-gray-600 text-sm border-b border-gray-200">
                                 <th className="p-4 font-semibold">ID</th>
-                                <th className="p-4 font-semibold">Дата</th>
+                                <th className="p-4 font-semibold">Date</th>
                                 <th className="p-4 font-semibold">Subtotal</th>
                                 <th className="p-4 font-semibold text-red-600">Tax Rate</th>
                                 <th className="p-4 font-semibold text-red-600">Tax Amount</th>
                                 <th className="p-4 font-semibold text-green-600">Total</th>
-                                <th className="p-4 font-semibold">Деталізація податків (Breakdown)</th>
-                                <th className="p-4 font-semibold">Юрисдикції</th>
+                                <th className="p-4 font-semibold">Tax breakdown</th>
+                                <th className="p-4 font-semibold">Jurisdictions</th>
                             </tr>
                             </thead>
                             <tbody className="text-sm">

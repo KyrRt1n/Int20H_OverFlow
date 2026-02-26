@@ -6,22 +6,22 @@ import { connectDB } from './db/database';
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Настройка CORS и парсера JSON
+// CORS and JSON parser configuration
 app.use(cors());
 app.use(express.json());
 
-// Подключение роутов (все пути в orderRoutes будут начинаться с /orders)
+// Route mounting (all paths in orderRoutes will start with /orders)
 app.use('/orders', orderRoutes);
 
-// Запуск сервера с предварительным подключением к БД
+// Start server with DB connection initialization
 const startServer = async () => {
   try {
-    await connectDB(); // Инициализируем БД перед запуском
+    await connectDB(); // Initialize DB before start
     app.listen(PORT, () => {
-      console.log(`🚀 Сервер запущен на http://localhost:${PORT}`);
+      console.log(`🚀 Server started on http://localhost:${PORT}`);
     });
   } catch (error) {
-    console.error('❌ Ошибка при запуске сервера:', error);
+    console.error('❌ Error during server start:', error);
   }
 };
 
