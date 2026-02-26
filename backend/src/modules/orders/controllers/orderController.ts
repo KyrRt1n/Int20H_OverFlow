@@ -35,7 +35,12 @@ export const getOrders = async (req: Request, res: Response) => {
     const conditions: string[] = [];
     const params: any[]        = [];
 
-    const { from, to, subtotal_min, subtotal_max, status } = req.query;
+    const { from, to, subtotal_min, subtotal_max, status, sort_by, sort_dir } = req.query;
+
+    // Whitelist sortable columns to prevent SQL injection
+    const SORTABLE = { id: 'id', date: 'timestamp', subtotal: 'subtotal', tax_rate: 'composite_tax_rate', tax_amt: 'tax_amount', total: 'total_amount' } as Record<string, string>;
+    const orderCol = SORTABLE[sort_by as string] ?? 'timestamp';
+    const orderDir = (sort_dir as string)?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
     // Фильтры from/to нормализуем в ISO и сравниваем с колонкой timestamp.
     // Сортировка тоже по timestamp — семантика единая.
@@ -74,13 +79,18 @@ export const getOrders = async (req: Request, res: Response) => {
 
     // Сортировка по timestamp — той же колонке, по которой фильтруем
     const rows = await db.all(
-      `SELECT * FROM orders ${where} ORDER BY timestamp DESC LIMIT ? OFFSET ?`,
+      `SELECT * FROM orders ${where} ORDER BY ${orderCol} ${orderDir} LIMIT ? OFFSET ?`,
       [...params, limit, offset]
     );
 
     const { total } = await db.get(
       `SELECT COUNT(*) as total FROM orders ${where}`,
       params
+    );
+
+    // Global totals across ALL orders (ignoring pagination/filters) — for sidebar stats
+    const globalStats = await db.get(
+      `SELECT COUNT(*) as total_orders, SUM(tax_amount) as total_tax, SUM(total_amount) as total_revenue FROM orders`
     );
 
     // Десериализуем JSON-колонки
@@ -97,6 +107,11 @@ export const getOrders = async (req: Request, res: Response) => {
         page,
         limit,
         totalPages: Math.ceil(total / limit),
+      },
+      summary: {
+        total_orders:  globalStats.total_orders  ?? 0,
+        total_tax:     globalStats.total_tax     ?? 0,
+        total_revenue: globalStats.total_revenue ?? 0,
       },
       filters: { from, to, subtotal_min, subtotal_max, status },
     });

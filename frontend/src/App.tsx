@@ -53,8 +53,9 @@ interface Filters {
 // ─── API ──────────────────────────────────────────────────────────────────────
 
 const api = {
-  getOrders: async (page: number, limit: number, filters: Filters) => {
+  getOrders: async (page: number, limit: number, filters: Filters, sort?: { by: string; dir: string }) => {
     const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+    if (sort) { params.set('sort_by', sort.by); params.set('sort_dir', sort.dir); }
     if (filters.status)      params.set('status', filters.status);
     if (filters.subtotal_min) params.set('subtotal_min', filters.subtotal_min);
     if (filters.subtotal_max) params.set('subtotal_max', filters.subtotal_max);
@@ -62,7 +63,7 @@ const api = {
     if (filters.to)          params.set('to', filters.to);
     const res = await fetch(`/orders?${params}`);
     if (!res.ok) throw new Error('Failed to fetch orders');
-    return res.json() as Promise<{ data: Order[]; pagination: Pagination }>;
+    return res.json() as Promise<{ data: Order[]; pagination: Pagination; summary: { total_orders: number; total_tax: number; total_revenue: number } }>;
   },
 
   createOrder: async (lat: number, lon: number, subtotal: number) => {
@@ -236,7 +237,9 @@ function ManualOrderModal({ onClose, onSuccess }: { onClose: () => void; onSucce
 export default function App() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [pagination, setPagination] = useState<Pagination>({ total: 0, page: 1, limit: 15, totalPages: 1 });
+  const [summary, setSummary] = useState({ total_orders: 0, total_tax: 0, total_revenue: 0 });
   const [filters, setFilters] = useState<Filters>({ status: '', subtotal_min: '', subtotal_max: '', from: '', to: '' });
+  const [sort, setSort] = useState<{ by: string; dir: 'asc' | 'desc' }>({ by: 'date', dir: 'desc' });
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<'import' | 'manual' | null>(null);
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
@@ -246,23 +249,24 @@ export default function App() {
     setTimeout(() => setToast(null), 3500);
   };
 
-  const loadOrders = useCallback(async (page = pagination.page) => {
+  const loadOrders = useCallback(async (page = pagination.page, currentSort = sort) => {
     setLoading(true);
     try {
-      const res = await api.getOrders(page, pagination.limit, filters);
+      const res = await api.getOrders(page, pagination.limit, filters, currentSort);
       setOrders(res.data);
       setPagination(res.pagination);
+      if (res.summary) setSummary(res.summary);
     } catch {
       showToast('Failed to load orders', 'error');
     } finally {
       setLoading(false);
     }
-  }, [filters, pagination.limit, pagination.page]);
+  }, [filters, pagination.limit, pagination.page, sort]);
 
-  useEffect(() => { loadOrders(1); }, [filters]);
+  useEffect(() => { loadOrders(1); }, [filters, sort]);
 
-  const totalTax = orders.reduce((s, o) => s + o.tax_amount, 0);
-  const totalRevenue = orders.reduce((s, o) => s + o.total_amount, 0);
+  const totalTax = summary.total_tax;
+  const totalRevenue = summary.total_revenue;
   const mapCenter: [number, number] = [42.7, -75.5];
 
   const setPage = (p: number) => {
@@ -309,7 +313,7 @@ export default function App() {
           <div style={styles.statCard}>
             <div style={styles.statDot} />
             <div style={styles.statLabel}>Total Deliveries</div>
-            <div style={styles.statValue}>{pagination.total.toLocaleString()}</div>
+            <div style={styles.statValue}>{summary.total_orders.toLocaleString()}</div>
           </div>
 
           <div style={{ ...styles.statCard, ...styles.statCardRose }}>
@@ -428,8 +432,28 @@ export default function App() {
               <table style={styles.table}>
                 <thead>
                 <tr>
-                  {['Order ID', 'Date', 'Subtotal', 'Tax Rate', 'Tax Amt', 'Total', 'Breakdown', 'Jurisdictions'].map(h => (
-                    <th key={h} style={styles.th}>{h}</th>
+                  {([
+                    { label: 'Order ID', key: 'id' },
+                    { label: 'Date', key: 'date' },
+                    { label: 'Subtotal', key: 'subtotal' },
+                    { label: 'Tax Rate', key: 'tax_rate' },
+                    { label: 'Tax Amt', key: 'tax_amt' },
+                    { label: 'Total', key: 'total' },
+                    { label: 'Breakdown', key: null },
+                    { label: 'Jurisdictions', key: null },
+                  ] as { label: string; key: string | null }[]).map(({ label, key }) => (
+                    <th key={label} style={{ ...styles.th, cursor: key ? 'pointer' : 'default', userSelect: 'none' }}
+                        onClick={() => {
+                          if (!key) return;
+                          const newSort = { by: key, dir: (sort.by === key && sort.dir === 'asc' ? 'desc' : 'asc') as 'asc' | 'desc' };
+                          setSort(newSort);
+                          loadOrders(1, newSort);
+                        }}>
+                      {label}
+                      {key && sort.by === key && (
+                        <span style={{ marginLeft: 4, opacity: 0.6 }}>{sort.dir === 'asc' ? '↑' : '↓'}</span>
+                      )}
+                    </th>
                   ))}
                 </tr>
                 </thead>
