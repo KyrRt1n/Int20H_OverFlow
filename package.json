@@ -2,10 +2,14 @@
   "name": "betterme-drone-delivery",
   "version": "1.0.0",
   "description": "Unified Drone Delivery Tax System",
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
+    "heroku-postbuild": "cd backend && npm install && cd ../frontend && npm install && npm run build",
+    "start": "cd backend && npm start",
     "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
     "build:frontend": "cd frontend && npm run build",
-    "start": "cd backend && npm start",
     "dev:backend": "cd backend && npm run dev",
     "dev:frontend": "cd frontend && npm run dev",
     "setup": "npm run install:all && npm run build:frontend"
