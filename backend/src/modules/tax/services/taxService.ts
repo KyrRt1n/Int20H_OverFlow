@@ -92,11 +92,49 @@ function getCountyByCoords(lat: number, lon: number): string {
   return bestCounty;
 }
 
-// NOTE: Known Limitation (BUG-07) — bbox check intentionally includes small areas
-// of adjacent states (PA, NJ, CT, VT) and a sliver of Canada.
-// Coordinates from those regions will pass NY validation.
-// Acceptable for MVP; for production replace with a proper NY state polygon,
-// e.g. via @turf/boolean-point-in-polygon with an official NYS GeoJSON boundary.
+// ---------------------------------------------------------------------------
+// City-level bounding boxes — only cities whose rate differs from their county.
+// Checked independently; smallest matching box wins (city takes priority over county).
+// bbox = [minLon, minLat, maxLon, maxLat]
+// ---------------------------------------------------------------------------
+const NY_CITY_BBOX: Record<string, [number, number, number, number]> = {
+  // NYC boroughs — 8.875% (city_rate=0.045, special=0.00375)
+  'new york':      [-74.02,  40.70, -73.91,  40.88], // Manhattan
+  'brooklyn':      [-74.04,  40.55, -73.83,  40.74], // Kings County
+  'bronx':         [-73.93,  40.79, -73.76,  40.92], // Bronx County
+  'queens':        [-73.96,  40.54, -73.70,  40.80], // Queens County
+  'staten island': [-74.26,  40.47, -74.04,  40.65], // Richmond County
+
+  // Westchester cities with distinct rates
+  'yonkers':       [-73.91,  40.91, -73.82,  40.97], // 8.875%
+  'mount vernon':  [-73.84,  40.90, -73.81,  40.93], // 8.375%
+  'new rochelle':  [-73.80,  40.90, -73.76,  40.94], // 8.375%
+  'white plains':  [-73.80,  41.02, -73.75,  41.05], // 8.375%
+};
+
+const CITY_BBOX_AREAS: Record<string, number> = Object.fromEntries(
+  Object.entries(NY_CITY_BBOX).map(([name, [minLon, minLat, maxLon, maxLat]]) => [
+    name, (maxLon - minLon) * (maxLat - minLat),
+  ])
+);
+
+function getCityByCoords(lat: number, lon: number): string {
+  let bestCity = '';
+  let bestArea = Infinity;
+  for (const [city, [minLon, minLat, maxLon, maxLat]] of Object.entries(NY_CITY_BBOX)) {
+    if (lon >= minLon && lon <= maxLon && lat >= minLat && lat <= maxLat) {
+      const area = CITY_BBOX_AREAS[city];
+      if (area < bestArea) {
+        bestArea = area;
+        bestCity = city;
+      }
+    }
+  }
+  return bestCity;
+}
+
+// NOTE: Known Limitation — bbox check includes small areas of adjacent states (PA, NJ, CT, VT).
+// Acceptable for MVP; replace with @turf/boolean-point-in-polygon for production.
 function isInsideNY(lat: number, lon: number): boolean {
   return lat >= 40.4 && lat <= 45.1 && lon >= -79.8 && lon <= -71.5;
 }
@@ -119,10 +157,12 @@ function buildTaxResult(subtotal: number, rates: TaxRates, jurisdictions: string
   };
 }
 
-function resolveRatesAndJurisdictions(county: string) {
-  const rates = getRatesByLocality('', county);
+function resolveRatesAndJurisdictions(county: string, city: string) {
+  // City takes priority over county via getRatesByLocality lookup order
+  const rates = getRatesByLocality(city, county);
   const jurisdictions = ['New York State'];
-  if (county) jurisdictions.push(`${toTitleCase(county)} County`);
+  if (city)        jurisdictions.push(toTitleCase(city));
+  else if (county) jurisdictions.push(`${toTitleCase(county)} County`);
   if (rates.special > 0) jurisdictions.push('Metropolitan Commuter Transportation District (MCTD)');
   return { rates, jurisdictions };
 }
@@ -135,13 +175,13 @@ export async function calculateTaxForLocation(lat: number, lon: number, subtotal
     throw new Error('Coordinates are outside of New York State');
   }
   const county = getCountyByCoords(lat, lon);
-  const { rates, jurisdictions } = resolveRatesAndJurisdictions(county);
+  const city   = getCityByCoords(lat, lon);
+  const { rates, jurisdictions } = resolveRatesAndJurisdictions(county, city);
   return buildTaxResult(subtotal, rates, jurisdictions);
 }
 
 // ---------------------------------------------------------------------------
 // Batch lookup — used by POST /orders/import (CSV import)
-// Fully local — no external API, processes 11k rows in milliseconds.
 // ---------------------------------------------------------------------------
 export interface BatchTaxInput {
   index: number;
@@ -173,7 +213,8 @@ export async function calculateTaxBatch(
       continue;
     }
     const county = getCountyByCoords(item.lat, item.lon);
-    const { rates, jurisdictions } = resolveRatesAndJurisdictions(county);
+    const city   = getCityByCoords(item.lat, item.lon);
+    const { rates, jurisdictions } = resolveRatesAndJurisdictions(county, city);
     const fallback = rates === DEFAULT_TAX_RATES;
 
     results.set(item.index, {

@@ -1,5 +1,7 @@
 import sqlite3 from 'sqlite3';
 import { open, Database } from 'sqlite';
+import * as path from 'path';
+import * as fs from 'fs';
 
 // Singleton — открывается один раз, переиспользуется всеми запросами
 let dbInstance: Database | null = null;
@@ -27,7 +29,6 @@ export const connectDB = async (): Promise<Database> => {
       breakdown          TEXT,
       jurisdictions      TEXT,
       timestamp          TEXT,
-      customer_name      TEXT    DEFAULT 'Imported',
       status             TEXT    DEFAULT 'new',
       created_at         DATETIME DEFAULT CURRENT_TIMESTAMP
     )
@@ -45,24 +46,19 @@ export const connectDB = async (): Promise<Database> => {
 
   console.log('✅ SQLite connected (singleton), orders table ready.');
 
+  // Auto-seed from CSV on first launch (empty DB)
   const { count } = await db.get('SELECT COUNT(*) as count FROM orders');
   if (count === 0) {
-    console.log('🌱 Seeding database...');
-    const seeds = [
-      { lat: 40.7128, lon: -74.0060, sub: 150.00 },
-      { lat: 42.3314, lon: -74.0667, sub: 89.99  },
-      { lat: 43.1566, lon: -77.6088, sub: 210.50 },
-      { lat: 42.8864, lon: -78.8784, sub: 45.00  },
-    ];
-    for (const o of seeds) {
-      await db.run(
-        `INSERT INTO orders (latitude, longitude, subtotal, timestamp, tax_amount, total_amount, composite_tax_rate, jurisdictions, breakdown)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [o.lat, o.lon, o.sub, new Date().toISOString(),
-         o.sub * 0.08875, o.sub * 1.08875, 0.08875,
-         JSON.stringify(['New York State', 'NYC']),
-         JSON.stringify({ state_rate: 0.04, county_rate: 0.04875, city_rate: 0, special_rates: 0 })]
-      );
+    const csvPath = path.resolve(__dirname, '../../../../data/orders.csv');
+    if (fs.existsSync(csvPath)) {
+      console.log('🌱 First launch: importing seed data from orders.csv...');
+      console.log('   This may take a few seconds, please wait...');
+      // Lazy import to avoid circular dependency at module load time
+      const { processCsvFile } = await import('../../import/services/csvParserService');
+      const result = await processCsvFile(csvPath);
+      console.log(`✅ Seed import complete: ${result.processed} orders imported, ${result.failed} failed.`);
+    } else {
+      console.log('ℹ️  No seed CSV found at backend/data/orders.csv — starting with empty database.');
     }
   }
 
