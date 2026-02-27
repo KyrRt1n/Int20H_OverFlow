@@ -1,7 +1,8 @@
 import React, { useState, useRef } from 'react';
 
 const api = {
-  importCsv: async (file: File, token: string) => {
+  importCsv: async (file: File) => {
+    const token = localStorage.getItem('admin_token') || '';
     const fd = new FormData();
     fd.append('file', file);
     const res = await fetch('/orders/import', {
@@ -22,7 +23,6 @@ interface Props {
 
 export function ImportCsvModal({ onClose, onSuccess }: Props) {
   const [file, setFile] = useState<File | null>(null);
-  const [token, setToken] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ processed: number; failed: number; errors?: string[] } | null>(null);
   const [error, setError] = useState('');
@@ -35,11 +35,11 @@ export function ImportCsvModal({ onClose, onSuccess }: Props) {
   };
 
   const handleSubmit = async () => {
-    if (!file || !token) return;
+    if (!file) return;
     setLoading(true);
     setError('');
     try {
-      const r = await api.importCsv(file, token);
+      const r = await api.importCsv(file);
       setResult(r);
       onSuccess();
     } catch (e: any) {
@@ -107,21 +107,13 @@ export function ImportCsvModal({ onClose, onSuccess }: Props) {
               </div>
 
               <div style={s.fieldGroup}>
-                <label style={s.label}>Auth Token</label>
-                <input
-                  type="text"
-                  placeholder="Enter your admin token"
-                  value={token}
-                  onChange={e => setToken(e.target.value)}
-                  style={s.input}
-                />
               </div>
 
               {error && <div style={s.errorBox}>{error}</div>}
 
               <button
-                style={{ ...s.primaryBtn, opacity: (!file || !token || loading) ? 0.5 : 1 }}
-                disabled={!file || !token || loading}
+                style={{ ...s.primaryBtn, opacity: (!file || loading) ? 0.5 : 1 }}
+                disabled={!file || loading}
                 onClick={handleSubmit}
               >
                 {loading ? (
