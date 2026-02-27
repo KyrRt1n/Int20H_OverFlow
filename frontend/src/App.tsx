@@ -207,12 +207,12 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               <div style={d.statBar}><div style={{ ...d.statBarFill, background: '#ff2d55', width: '68%' }} /></div>
             </div>
 
-            <div style={{ ...d.statCard, borderColor: '#1a3fff' }}>
-              <div style={{ ...d.statNum, color: '#1a3fff' }}>
+            <div style={{ ...d.statCard, borderColor: '#4680ff9e' }}>
+              <div style={{ ...d.statNum, color: '#4680ff9e' }}>
                 ${summary.total_revenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
               <div style={d.statLabel}>TOTAL REVENUE</div>
-              <div style={d.statBar}><div style={{ ...d.statBarFill, background: '#1a3fff', width: '85%' }} /></div>
+              <div style={d.statBar}><div style={{ ...d.statBarFill, background: '#4680ff9e', width: '85%' }} /></div>
             </div>
           </div>
 
@@ -322,7 +322,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                     {orders.map((o, i) => (
                         <tr key={o.id} className="order-row" style={{ background: i % 2 === 0 ? '#f5f5f0' : '#eeeee9' }}>
                           <td style={{ ...d.td, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700 }}>#{o.id}</td>
-                          <td style={{ ...d.td, fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: '#5a5a55' }}>
+                          <td style={{ ...d.td, fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: '#c2c2b8' }}>
                             {new Date(o.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}
                           </td>
                           <td style={d.td}>${o.subtotal.toFixed(2)}</td>
@@ -387,7 +387,7 @@ const d: Record<string, React.CSSProperties> = {
   },
   // SIDEBAR
   sidebar: {
-    width: 260, background: '#0a0a0a', color: '#f5f5f0',
+    width: 260, background: '#0B1206', color: '#f5f5f0',
     display: 'flex', flexDirection: 'column', flexShrink: 0,
     borderRight: '2px solid #0a0a0a',
   },
@@ -400,16 +400,16 @@ const d: Record<string, React.CSSProperties> = {
     alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },
   brandName: { fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: '2px', lineHeight: 1 },
-  brandSub: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 9, letterSpacing: '1.5px', color: '#5a5a55', marginTop: 2 },
+  brandSub: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 9, letterSpacing: '1.5px', color: '#c2c2b8', marginTop: 2 },
   statsSection: { padding: '20px 20px', display: 'flex', flexDirection: 'column', gap: 12, borderBottom: '1px solid #2a2a2a' },
-  sectionLabel: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, letterSpacing: '2px', color: '#5a5a55', marginBottom: 4 },
+  sectionLabel: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, letterSpacing: '2px', color: '#c2c2b8', marginBottom: 4 },
   statCard: {
     border: '1px solid #2a2a2a', padding: '14px 16px',
     display: 'flex', flexDirection: 'column', gap: 4,
     transition: 'border-color 0.15s',
   },
   statNum: { fontFamily: "'Bebas Neue', sans-serif", fontSize: 28, letterSpacing: '1px', color: '#c8ff00', lineHeight: 1 },
-  statLabel: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, letterSpacing: '1.5px', color: '#5a5a55' },
+  statLabel: { fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, letterSpacing: '1.5px', color: '#c2c2b8' },
   statBar: { height: 3, background: '#2a2a2a', marginTop: 6 },
   statBarFill: { height: '100%', transition: 'width 0.5s ease' },
   actionsSection: { padding: '20px 20px', display: 'flex', flexDirection: 'column', gap: 8, borderBottom: '1px solid #2a2a2a' },
@@ -431,7 +431,7 @@ const d: Record<string, React.CSSProperties> = {
   },
   jurisdictionTag: {
     fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, letterSpacing: '2px',
-    color: '#5a5a55', padding: '6px 0',
+    color: '#c2c2b8', padding: '6px 0',
   },
   logoutBtn: {
     background: 'none', border: '1px solid #2a2a2a', color: '#ff2d55',
