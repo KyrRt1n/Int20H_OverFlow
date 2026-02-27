@@ -92,6 +92,11 @@ function getCountyByCoords(lat: number, lon: number): string {
   return bestCounty;
 }
 
+// NOTE: Known Limitation (BUG-07) — bbox check intentionally includes small areas
+// of adjacent states (PA, NJ, CT, VT) and a sliver of Canada.
+// Coordinates from those regions will pass NY validation.
+// Acceptable for MVP; for production replace with a proper NY state polygon,
+// e.g. via @turf/boolean-point-in-polygon with an official NYS GeoJSON boundary.
 function isInsideNY(lat: number, lon: number): boolean {
   return lat >= 40.4 && lat <= 45.1 && lon >= -79.8 && lon <= -71.5;
 }
