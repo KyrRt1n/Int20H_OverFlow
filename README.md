@@ -129,3 +129,28 @@ curl http://localhost:3000/orders
 
 - **Backend**: Node.js, Express, TypeScript, SQLite, Multer (file uploads), Axios.
 - **Frontend**: React, Vite, TypeScript.
+## Known Limitations
+
+### BUG-07 — NY State boundary check uses bounding box
+The `isInsideNY()` function in `taxService.ts` uses a simple rectangular bounding box to validate coordinates. This bbox slightly overlaps adjacent states:
+
+| Region | Issue |
+|--------|-------|
+| New Jersey (north) | ~40.4–40.95°N, around −74°lon |
+| Pennsylvania (east) | near the NY/PA border |
+| Connecticut / Vermont | eastern/northeastern edge |
+| Canada (Ontario) | small sliver above 45.0°N |
+
+Coordinates from these areas will incorrectly pass NY validation and receive NY tax rates.
+
+**For production:** Replace the bbox with a proper polygon check using the official NYS GeoJSON boundary and [`@turf/boolean-point-in-polygon`](https://turfjs.org/docs/api/booleanPointInPolygon):
+
+```ts
+import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
+import { point } from '@turf/helpers';
+import nyStateGeoJSON from './ny-state-boundary.json';
+
+function isInsideNY(lat: number, lon: number): boolean {
+  return booleanPointInPolygon(point([lon, lat]), nyStateGeoJSON);
+}
+```
