@@ -6,8 +6,8 @@
     "node": "20.x"
   },
   "scripts": {
-    "heroku-postbuild": "cd backend && npm install && cd ../frontend && npm install --include=dev && npm run build",
-    "start": "cd backend && node_modules/.bin/ts-node src/index.ts",
+    "heroku-postbuild": "cd backend && npm install && npm run build && cd ../frontend && npm install --include=dev && npm run build",
+    "start": "node backend/dist/index.js",
     "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
     "build:frontend": "cd frontend && npm run build",
     "dev:backend": "cd backend && npm run dev",
