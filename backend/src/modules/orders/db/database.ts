@@ -3,7 +3,7 @@ import { open, Database } from 'sqlite';
 import * as path from 'path';
 import * as fs from 'fs';
 
-// Singleton — открывается один раз, переиспользуется всеми запросами
+// Singleton — opened once, reused by all requests
 let dbInstance: Database | null = null;
 
 export const connectDB = async (): Promise<Database> => {
@@ -14,7 +14,7 @@ export const connectDB = async (): Promise<Database> => {
     driver: sqlite3.Database,
   });
 
-  // WAL улучшает параллельность при одном писателе
+  // WAL improves concurrency with a single writer
   await db.exec('PRAGMA journal_mode = WAL;');
 
   await db.exec(`

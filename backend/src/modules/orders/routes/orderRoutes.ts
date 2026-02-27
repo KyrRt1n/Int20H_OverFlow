@@ -3,7 +3,7 @@ import { getOrders, createOrder } from '../controllers/orderController';
 
 const router = Router();
 
-// GET /orders и POST /orders не требуют авторизации по ТЗ
+// GET /orders and POST /orders do not require authorization per task spec
 router.get('/', getOrders);
 router.post('/', createOrder);
 

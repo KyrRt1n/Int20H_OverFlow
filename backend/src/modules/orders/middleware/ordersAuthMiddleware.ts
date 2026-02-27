@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 
-// Отдельный токен для Orders endpoints — не смешиваем с ADMIN_TOKEN (import)
+// Separate token for Orders endpoints — do not mix with ADMIN_TOKEN (import)
 const ORDERS_API_TOKEN = process.env.ORDERS_API_TOKEN;
 
 if (!ORDERS_API_TOKEN) {

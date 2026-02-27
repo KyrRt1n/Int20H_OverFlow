@@ -18,13 +18,13 @@ const csvFileFilter = (
     'text/csv',
     'application/vnd.ms-excel',
     'text/plain',
-    'application/octet-stream', // Windows Chrome иногда шлёт это для .csv
+    'application/octet-stream', // Windows Chrome sometimes sends this for .csv
   ];
 
   const ext = path.extname(file.originalname).toLowerCase();
 
-  // Разрешаем если mimetype в списке ИЛИ расширение .csv
-  // (защита от браузеров которые неправильно определяют MIME)
+  // Allow if mimetype is in list OR extension is .csv
+  // (protection against browsers that misidentify MIME)
   if (allowedMimeTypes.includes(file.mimetype) || ext === '.csv') {
     cb(null, true);
   } else {
@@ -40,7 +40,7 @@ const upload = multer({
   fileFilter: csvFileFilter,
 });
 
-// Оборачиваем upload.single() в Promise чтобы поймать MulterError в try/catch
+// Wrap upload.single() in a Promise to catch MulterError in try/catch
 const uploadSingle = (req: Request, res: Response): Promise<void> => {
   return new Promise((resolve, reject) => {
     upload.single('file')(req, res, (err) => {

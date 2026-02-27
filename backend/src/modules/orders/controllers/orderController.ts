@@ -2,13 +2,13 @@ import { Request, Response } from 'express';
 import { connectDB } from '../db/database';
 import { calculateTaxForLocation } from '../../tax/services/taxService';
 
-// Нормализует любую дату-строку в ISO 8601 (UTC).
-// Если передана только дата "YYYY-MM-DD" — дополняет до "YYYY-MM-DDT00:00:00.000Z".
-// Возвращает null если строка не парсится.
+// Normalizes any date string to ISO 8601 (UTC).
+// If only "YYYY-MM-DD" is passed, it appends "T00:00:00.000Z".
+// Returns null if the string cannot be parsed.
 function normalizeToISO(value: string): string | null {
   const d = new Date(value);
   if (isNaN(d.getTime())) return null;
-  return d.toISOString(); // всегда "YYYY-MM-DDTHH:mm:ss.sssZ"
+  return d.toISOString(); // always "YYYY-MM-DDTHH:mm:ss.sssZ"
 }
 
 // GET /orders
@@ -42,15 +42,15 @@ export const getOrders = async (req: Request, res: Response) => {
     const orderCol = SORTABLE[sort_by as string] ?? 'timestamp';
     const orderDir = (sort_dir as string)?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
-    // Фильтры from/to нормализуем в ISO и сравниваем с колонкой timestamp.
-    // Сортировка тоже по timestamp — семантика единая.
+    // Normalize from/to filters to ISO and compare with the timestamp column.
+    // Sorting is also by timestamp — keeping semantics unified.
     if (from) {
       const iso = normalizeToISO(from as string);
       if (!iso) {
         res.status(400).json({ error: `Invalid 'from' date: "${from}"` });
         return;
       }
-      // Для фильтра "с начала дня" — если передана только дата, from уже нормализован до T00:00:00Z
+      // For "start of day" filter — if only date is passed, 'from' is already normalized to T00:00:00Z
       conditions.push('timestamp >= ?');
       params.push(iso);
     }
@@ -61,7 +61,7 @@ export const getOrders = async (req: Request, res: Response) => {
         res.status(400).json({ error: `Invalid 'to' date: "${to}"` });
         return;
       }
-      // Если передана только дата (YYYY-MM-DD), нормализуем до конца дня T23:59:59.999Z
+      // If only date (YYYY-MM-DD) is passed, normalize to the end of day T23:59:59.999Z
       const raw = to as string;
       const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(raw);
       const isoTo = isDateOnly
@@ -77,7 +77,7 @@ export const getOrders = async (req: Request, res: Response) => {
 
     const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-    // Сортировка по timestamp — той же колонке, по которой фильтруем
+    // Sorting by timestamp — the same column used for filtering
     const rows = await db.all(
       `SELECT * FROM orders ${where} ORDER BY ${orderCol} ${orderDir} LIMIT ? OFFSET ?`,
       [...params, limit, offset]
@@ -93,7 +93,7 @@ export const getOrders = async (req: Request, res: Response) => {
       `SELECT COUNT(*) as total_orders, SUM(tax_amount) as total_tax, SUM(total_amount) as total_revenue FROM orders`
     );
 
-    // Десериализуем JSON-колонки
+    // Deserialize JSON columns
     const orders = rows.map((row: any) => ({
       ...row,
       breakdown:     row.breakdown     ? JSON.parse(row.breakdown)     : null,
@@ -136,7 +136,7 @@ export const createOrder = async (req: Request, res: Response) => {
   try {
     const { latitude, longitude, subtotal, timestamp } = req.body;
 
-    // Валидация обязательных полей
+    // Mandatory fields validation
     if (latitude == null || longitude == null || subtotal == null) {
       res.status(400).json({ error: 'latitude, longitude and subtotal are required.' });
       return;
@@ -151,7 +151,7 @@ export const createOrder = async (req: Request, res: Response) => {
       return;
     }
 
-    // Нормализуем timestamp в ISO: если не передан — текущее время
+    // Normalize timestamp to ISO: default to now if not provided
     let normalizedTimestamp: string;
     if (timestamp) {
       const iso = normalizeToISO(timestamp);

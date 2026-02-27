@@ -5,8 +5,8 @@ export const calculateTax = async (req: Request, res: Response) => {
   try {
     const { lat, lon, subtotal } = req.body;
 
-    // Используем parseFloat + isNaN — консистентно с orderController.
-    // Принимает и числа, и строки ("40.7" → 40.7), отклоняет null/undefined/мусор.
+    // Use parseFloat + isNaN — consistent with orderController.
+    // Accepts both numbers and strings ("40.7" → 40.7), rejects null/undefined/garbage.
     const latN     = parseFloat(lat);
     const lonN     = parseFloat(lon);
     const subtotalN = parseFloat(subtotal);
@@ -19,7 +19,7 @@ export const calculateTax = async (req: Request, res: Response) => {
     const result = await calculateTaxForLocation(latN, lonN, subtotalN);
     res.json(result);
   } catch (error: any) {
-    // Координаты вне NYS — клиентская ошибка, возвращаем 400, а не 500
+    // Coordinates outside NYS — client error, return 400 instead of 500
     if (error.message?.includes('outside of New York State')) {
       res.status(400).json({ error: error.message });
       return;
