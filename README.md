@@ -5,7 +5,9 @@ A full-stack admin dashboard for managing drone delivery orders with automatic s
 Built for the Int20H hackathon challenge: given a delivery coordinate anywhere in NYS, determine the correct **composite sales tax** (state + county + city + MCTD special) and apply it to each order.
 
 Credentials:
+
 login: admin
+
 password: admin123
 
 Heroku deploy: https://int20h-overflow-f00292f4e6ea.herokuapp.com
