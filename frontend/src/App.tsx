@@ -276,7 +276,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const totalTax = summary.total_tax;
   const totalRevenue = summary.total_revenue;
   const mapCenter: [number, number] = [42.9538, -75.5268];
-  const NY_BOUNDS = L.latLngBounds(L.latLng(24.396308, -125.0), L.latLng(49.384358, -66.93457));
+  const NY_BOUNDS = L.latLngBounds(L.latLng(40.4, -79.8), L.latLng(45.1, -71.5));
 
   const setPage = (p: number) => {
     setPagination(prev => ({ ...prev, page: p }));
