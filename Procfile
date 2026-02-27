@@ -1,1 +1,1 @@
-web: cd backend && npm start
+web: cd backend && node_modules/.bin/ts-node src/index.ts
