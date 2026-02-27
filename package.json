@@ -9,9 +9,9 @@
     "heroku-postbuild": "cd backend && npm install --include=dev && npm run build && cd ../frontend && npm install --include=dev && npm run build",
     "start": "node backend/dist/index.js",
     "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
-    "build:frontend": "cd frontend && npm run build",
+    "build": "cd frontend && npm install && npm run build && cd ../backend && npm install && npm run build",
     "dev:backend": "cd backend && npm run dev",
     "dev:frontend": "cd frontend && npm run dev",
-    "setup": "npm run install:all && npm run build:frontend"
+    "setup": "npm run install:all && cd frontend && npm run build"
   }
 }
