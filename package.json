@@ -6,7 +6,7 @@
     "node": "20.x"
   },
   "scripts": {
-    "heroku-postbuild": "cd backend && npm install && cd ../frontend && npm install && npm run build",
+    "heroku-postbuild": "cd backend && npm install && cd ../frontend && npm install --include=dev && npm run build",
     "start": "cd backend && npm start",
     "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
     "build:frontend": "cd frontend && npm run build",
