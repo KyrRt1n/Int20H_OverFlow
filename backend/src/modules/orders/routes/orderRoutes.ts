@@ -5,7 +5,7 @@ import { ordersAuthMiddleware } from '../middleware/authMiddleware';
 const router = Router();
 
 // Bind URLs to controllers
-router.get('/', getOrders);
-router.post('/', createOrder);
+router.get('/', ordersAuthMiddleware, getOrders);
+router.post('/', ordersAuthMiddleware, createOrder);
 
 export default router;
