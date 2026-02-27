@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import { getOrders, createOrder } from '../controllers/orderController';
-import { ordersAuthMiddleware } from '../middleware/ordersAuthMiddleware';
 
 const router = Router();
 
-router.get('/', ordersAuthMiddleware, getOrders);
-router.post('/', ordersAuthMiddleware, createOrder);
+// GET /orders и POST /orders не требуют авторизации по ТЗ
+router.get('/', getOrders);
+router.post('/', createOrder);
 
 export default router;
